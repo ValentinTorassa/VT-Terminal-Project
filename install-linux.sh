@@ -137,6 +137,12 @@ if ! command -v lazygit &>/dev/null; then
   fi
 fi
 
+# zed editor
+if ! command -v zed &>/dev/null; then
+  echo "  -> zed"
+  curl -fsS https://zed.dev/install.sh | sh 2>&1 || echo "  [!] zed install failed"
+fi
+
 # lazydocker (not in most repos)
 if ! command -v lazydocker &>/dev/null; then
   echo "  -> lazydocker (from GitHub release)"

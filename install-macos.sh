@@ -42,6 +42,9 @@ BREW_PACKAGES=(
   thefuck
   tldr
 
+  # Editor
+  zed
+
   # Git/Docker TUIs
   lazygit
   lazydocker
