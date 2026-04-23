@@ -27,6 +27,10 @@ source $ZSH/oh-my-zsh.sh
 # ---------- PATH ----------
 export PATH="$HOME/.local/bin:$HOME/go/bin:$PATH"
 
+# ---------- Editor ----------
+export EDITOR="zed --wait"
+export VISUAL="zed --wait"
+
 # ---------- Modular config ----------
 # Resolve symlink to find the real directory where the zsh configs live
 DOTFILES_ZSH="${${(%):-%x}:A:h}"
@@ -41,7 +45,7 @@ command -v thefuck &>/dev/null && eval "$(thefuck --alias)"
 command -v fzf &>/dev/null && {
   export FZF_DEFAULT_OPTS="--height 40% --layout=reverse --border --info=inline"
   export FZF_DEFAULT_COMMAND="fd --type f --hidden --follow --exclude .git"
-  export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+  export FZF_CTRL_T_COMMAND="fd . / --type f --hidden --follow --exclude .git --exclude node_modules --exclude .cache --exclude /proc --exclude /sys --exclude /dev 2>/dev/null"
 }
 
 # ---------- Powerlevel10k ----------
