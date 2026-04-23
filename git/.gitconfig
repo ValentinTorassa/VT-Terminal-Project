@@ -10,6 +10,20 @@
   side-by-side = true
   line-numbers = true
   syntax-theme = Catppuccin-mocha
+  hyperlinks = true
+  file-style = bold yellow ul
+  file-decoration-style = yellow ol
+  hunk-header-style = file line-number syntax
+  hunk-header-decoration-style = blue box bold
+  line-numbers-left-style = blue
+  line-numbers-right-style = blue
+  line-numbers-minus-style = red bold
+  line-numbers-plus-style = green bold
+  minus-style = syntax "#3a1d2e"
+  minus-emph-style = syntax "#6b2040"
+  plus-style = syntax "#1a3a2a"
+  plus-emph-style = syntax "#2a6040"
+  blame-palette = "#1e1e2e" "#181825" "#11111b" "#313244"
 
 [merge]
   conflictstyle = diff3
