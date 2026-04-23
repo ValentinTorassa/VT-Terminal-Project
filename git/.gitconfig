@@ -1,0 +1,35 @@
+[core]
+  pager = delta
+  editor = vim
+
+[interactive]
+  diffFilter = delta --color-only
+
+[delta]
+  navigate = true
+  side-by-side = true
+  line-numbers = true
+  syntax-theme = Catppuccin-mocha
+
+[merge]
+  conflictstyle = diff3
+
+[diff]
+  colorMoved = default
+
+[alias]
+  unstage = reset HEAD --
+  undo = reset --soft HEAD~1
+  amend = commit --amend --no-edit
+
+[init]
+  defaultBranch = main
+
+[pull]
+  rebase = true
+
+[push]
+  autoSetupRemote = true
+
+[rerere]
+  enabled = true
