@@ -18,7 +18,38 @@
   "auto_install_extensions": {
     "catppuccin": true,
     "catppuccin-icons": true,
-    "discord-presence": true
+    "discord-presence": true,
+    "toml": true,
+    "dockerfile": true,
+    "dotenv": true,
+    "basher": true,
+    "github-actions": true
+  },
+
+  // ── MCP servers (Model Context Protocol) ────────────────────
+  // GitHub: needs GITHUB_PERSONAL_ACCESS_TOKEN in your shell env
+  // Context7: no auth required
+  // Serena: requires `uv` (https://docs.astral.sh/uv/) — install with `curl -LsSf https://astral.sh/uv/install.sh | sh`
+  "context_servers": {
+    "github": {
+      "source": "custom",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"]
+    },
+    "context7": {
+      "source": "custom",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
+    "serena": {
+      "source": "custom",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena-mcp-server"
+      ]
+    }
   },
 
   // ── Editor ──────────────────────────────────────────────────

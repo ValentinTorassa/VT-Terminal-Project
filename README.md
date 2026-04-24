@@ -1,77 +1,54 @@
 # VT IDE Project
 
-Personal IDE setup for macOS. Zed editor + Claude AI agent + AI-powered git workflows.
+AI-native [Zed](https://zed.dev) setup. Claude-powered git scripts, MCP tools in the editor, and a theme that doesn't hurt your eyes.
 
-Companion to [VT-Terminal-Project](https://github.com/ValentinTorassa/VT-Terminal-Project) - same philosophy, but for the editor layer.
+Companion to [VT-Terminal-Project](https://github.com/ValentinTorassa/VT-Terminal-Project).
 
-## What's included
+---
 
-### Zed Configuration
-- Editor settings optimized for speed and readability
-- Custom keybindings for git workflows and AI commands (Linux-friendly `ctrl` bindings — see [cheatsheet](./cheatsheet/zed-shortcuts.md))
-- Catppuccin theme + icons (Latte for light, Mocha for dark)
-- Extension management (Catppuccin, Catppuccin Icons, Discord Presence)
+## What it does
 
-### AI Agent Integration
-- Claude Agent via ACP (Agent Client Protocol) in Zed
-- Custom prompt library for the AI assistant
-- Inline code review, diff explanation, and conflict resolution
+### Terminal scripts (all Claude-backed)
+| Command | What it gives you |
+|---------|-------------------|
+| `vt-diff` | Structured summary of your diff: *Summary · Key changes · Impact · Risk* |
+| `vt-review` | Code review on staged changes or a branch |
+| `vt-commit` | Conventional-Commits message from your staged diff |
+| `vt-conflict` | Merge-conflict resolver with repo context |
+| `vt-pr <n>` | Summarize any GitHub PR |
 
-### AI Workflow Scripts
-- `vt-pr` — Fetch and summarize any PR with AI
-- `vt-diff` — Show current diff with AI-generated explanation
-- `vt-review` — AI code review on staged changes or a branch
-- `vt-conflict` — AI-assisted merge conflict resolution
-- `vt-commit` — Generate smart commit messages from staged changes
+### In-editor AI (Zed)
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+Shift+A` | Toggle AI panel |
+| `Ctrl+Enter` | Inline assist on selection |
+| `Ctrl+Shift+Enter` | Free-form inline prompt |
 
-### Prompt Library
-- `/review` — Deep code review with security and performance analysis
-- `/explain-diff` — Explain what changed and why
-- `/fix-conflict` — Resolve merge conflicts with context
-- `/pr-summary` — Generate PR title and description
+Full list: [`cheatsheet/zed-shortcuts.md`](./cheatsheet/zed-shortcuts.md).
 
-## Quick Setup
+### MCP tools wired into the AI panel
+- **GitHub** — query PRs, issues, reviews directly from the AI panel
+- **Context7** — up-to-date library docs, kills the stale-training-data problem
+- **Serena** — semantic code search + symbol-level edits
+
+### Zed setup
+Catppuccin theme + icons (system light/dark), Discord presence, language packs for TOML / Dockerfile / `.env` / shell / GitHub Actions, inline git blame, format-on-save.
+
+---
+
+## Install
 
 ```bash
 git clone https://github.com/ValentinTorassa/VT-IDE-Project.git ~/.ide-config
-cd ~/.ide-config
-./install.sh
-```
-
-## Repository Structure
-
-```
-.
-├── zed/
-│   ├── settings.json        # Editor configuration
-│   └── keymap.json           # Custom keybindings
-├── prompts/
-│   ├── review.md             # Code review prompt
-│   ├── explain-diff.md       # Diff explanation prompt
-│   ├── fix-conflict.md       # Merge conflict resolver prompt
-│   └── pr-summary.md         # PR summary generator prompt
-├── scripts/
-│   ├── vt-pr                 # PR summary tool
-│   ├── vt-diff               # AI diff explainer
-│   ├── vt-review             # AI code reviewer
-│   ├── vt-conflict           # Merge conflict solver
-│   └── vt-commit             # Smart commit message generator
-├── cheatsheet/
-│   └── zed-shortcuts.md      # Searchable keybinding reference
-├── install.sh                # One-command setup
-└── README.md
+cd ~/.ide-config && ./install.sh
 ```
 
 ## Requirements
+macOS or Linux · Zed v0.200+ · [Claude Code CLI](https://claude.ai/claude-code) · `gh` · `jq` · `delta` · [`uv`](https://docs.astral.sh/uv/) (for Serena)
 
-- macOS (Apple Silicon) or Linux
-- [Zed](https://zed.dev) (v0.200+)
-- [GitHub CLI](https://cli.github.com/) (`gh`)
-- [Claude Code](https://claude.ai/claude-code) CLI (for AI scripts)
-- [jq](https://jqlang.github.io/jq/) (for JSON processing)
-- [delta](https://github.com/dandavella/delta) (for pretty diffs)
+## MCP auth
+- **GitHub**: `export GITHUB_PERSONAL_ACCESS_TOKEN=...` (scopes: `repo`, `read:org`), launch Zed from that shell
+- **Context7 / Serena**: no auth
 
 ## License
-
-MIT
-
+GPL-3.0 — see [LICENSE](./LICENSE).
