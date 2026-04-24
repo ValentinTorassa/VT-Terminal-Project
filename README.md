@@ -2,7 +2,7 @@
 
 Personal IDE setup for macOS. Zed editor + Claude AI agent + AI-powered git workflows.
 
-Companion to [VT-Terminal-Project](https://github.com/ValentinTorassa/VT-Terminal-Project) — same philosophy, but for the editor layer.
+Companion to [VT-Terminal-Project](https://github.com/ValentinTorassa/VT-Terminal-Project) - same philosophy, but for the editor layer.
 
 ## What's included
 
