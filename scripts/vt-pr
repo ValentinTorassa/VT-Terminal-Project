@@ -90,4 +90,9 @@ $(echo "$PR_DATA" | jq -r '.body // "No description"')
 Diff (truncated to first 500 lines):
 $(echo "$PR_DIFF" | head -500)"
 
-echo "$PROMPT" | claude --print 2>/dev/null || echo "$PROMPT" | claude -p 2>/dev/null
+OUTPUT=$(echo "$PROMPT" | claude --print 2>/dev/null || echo "$PROMPT" | claude -p 2>/dev/null)
+if command -v glow &>/dev/null; then
+  echo "$OUTPUT" | glow -
+else
+  echo "$OUTPUT"
+fi

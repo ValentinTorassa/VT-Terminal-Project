@@ -1,38 +1,40 @@
 // VT IDE Project — Zed Keybindings
 // Git workflow and AI shortcuts
+// Note: uses `ctrl` for Linux. On macOS, Zed auto-translates `ctrl` → `cmd`
+// for many defaults, but if you're on macOS and want native feel, swap ctrl → cmd.
 [
   {
     "context": "Workspace",
     "bindings": {
       // ── AI Assistant ──────────────────────────────────────
-      "cmd-shift-a": "assistant::ToggleFocus",
-      "cmd-shift-i": "assistant::InlineAssist",
+      "ctrl-shift-a": "assistant::ToggleFocus",
+      "ctrl-shift-enter": "assistant::InlineAssist",
 
       // ── Git workflows ────────────────────────────────────
-      "cmd-shift-g": "workspace::ToggleBottomDock",
+      "ctrl-shift-g": "workspace::ToggleBottomDock",
 
       // ── Terminal ──────────────────────────────────────────
       "ctrl-`": "terminal_panel::ToggleFocus",
 
       // ── Navigation ────────────────────────────────────────
-      "cmd-shift-o": "file_finder::Toggle",
-      "cmd-shift-f": "workspace::NewSearch"
+      "ctrl-shift-o": "file_finder::Toggle",
+      "ctrl-shift-f": "workspace::NewSearch"
     }
   },
   {
     "context": "Editor",
     "bindings": {
       // ── AI inline assist on selection ─────────────────────
-      "cmd-k": "assistant::InlineAssist",
+      "ctrl-enter": "assistant::InlineAssist",
 
       // ── Quick actions ─────────────────────────────────────
-      "cmd-shift-d": "editor::DuplicateLineDown",
-      "cmd-shift-k": "editor::DeleteLine",
+      "ctrl-shift-d": "editor::DuplicateLineDown",
+      "alt-shift-k": "editor::DeleteLine",
       "alt-up": "editor::MoveLineUp",
       "alt-down": "editor::MoveLineDown",
 
       // ── Multi-cursor ──────────────────────────────────────
-      "cmd-d": "editor::SelectNext"
+      "ctrl-d": "editor::SelectNext"
     }
   },
   {
