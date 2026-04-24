@@ -2,15 +2,15 @@
 
 Personal IDE setup for macOS. Zed editor + Claude AI agent + AI-powered git workflows.
 
-Companion to [VT-Terminal-Project](https://github.com/ValentinTorassa/VT-Terminal-Project) — same philosophy, but for the editor layer.
+Companion to [VT-Terminal-Project](https://github.com/ValentinTorassa/VT-Terminal-Project) - same philosophy, but for the editor layer.
 
 ## What's included
 
 ### Zed Configuration
 - Editor settings optimized for speed and readability
 - Custom keybindings for git workflows and AI commands (Linux-friendly `ctrl` bindings — see [cheatsheet](./cheatsheet/zed-shortcuts.md))
-- Theme matching the terminal setup (GitHub Dark / Catppuccin)
-- Extension management (Discord presence, language support)
+- Catppuccin theme + icons (Latte for light, Mocha for dark)
+- Extension management (Catppuccin, Catppuccin Icons, Discord Presence)
 
 ### AI Agent Integration
 - Claude Agent via ACP (Agent Client Protocol) in Zed
@@ -74,3 +74,4 @@ cd ~/.ide-config
 ## License
 
 MIT
+
