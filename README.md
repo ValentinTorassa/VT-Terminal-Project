@@ -9,8 +9,8 @@ Companion to [VT-Terminal-Project](https://github.com/ValentinTorassa/VT-Termina
 ### Zed Configuration
 - Editor settings optimized for speed and readability
 - Custom keybindings for git workflows and AI commands
-- Theme matching the terminal setup (GitHub Dark / Catppuccin)
-- Extension management (Discord presence, language support)
+- Catppuccin theme + icons (Latte for light, Mocha for dark)
+- Extension management (Catppuccin, Catppuccin Icons, Discord Presence)
 
 ### AI Agent Integration
 - Claude Agent via ACP (Agent Client Protocol) in Zed
