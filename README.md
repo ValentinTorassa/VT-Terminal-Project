@@ -2,7 +2,7 @@
 
 Personal dotfiles and terminal setup for macOS and Linux. One script to bootstrap a new machine with a fully configured terminal environment.
 
-Companion to [VT-IDE-Project](https://github.com/ValentinTorassa/VT-IDE-Project) — same philosophy, but for the editor layer.
+Companion to [VT-IDE-Project](https://github.com/ValentinTorassa/VT-IDE-Project) - same philosophy, but for the editor layer.
 
 ## What's included
 
