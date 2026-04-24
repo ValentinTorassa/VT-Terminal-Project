@@ -2,7 +2,20 @@
 // Optimized for AI-powered development workflows
 {
   // ── Appearance ──────────────────────────────────────────────
+  "project_panel": {
+    "dock": "right"
+  },
+  "outline_panel": {
+    "dock": "right"
+  },
+  "collaboration_panel": {
+    "dock": "right"
+  },
+  "git_panel": {
+    "dock": "right"
+  },
   "agent": {
+    "dock": "right",
     "default_model": {
       "provider": "anthropic",
       "model": "claude-sonnet-4-6-latest",
@@ -32,7 +45,8 @@
     "dockerfile": true,
     "dotenv": true,
     "basher": true,
-    "github-actions": true
+    "github-actions": true,
+    "supermaven": true
   },
 
   // ── MCP servers (Model Context Protocol) ────────────────────
