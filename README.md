@@ -60,3 +60,7 @@ Set `VT_ANTHROPIC_KEY` to enable:
 | `aiexplain [question]` | Explain last output (or pipe: `cmd \| aiexplain "why"`) |
 | `aicommit` | Generate commit message from staged changes |
 | `Alt+A` | AI auto-complete current command |
+
+## License
+
+GPL-3.0 — see [LICENSE](./LICENSE).
