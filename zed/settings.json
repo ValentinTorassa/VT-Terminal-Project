@@ -2,6 +2,15 @@
 // Optimized for AI-powered development workflows
 {
   // ── Appearance ──────────────────────────────────────────────
+  "agent": {
+    "default_model": {
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-6-latest",
+      "enable_thinking": false
+    },
+    "favorite_models": [],
+    "model_parameters": []
+  },
   "ui_font_size": 16,
   "buffer_font_size": 15,
   "buffer_font_family": "JetBrains Mono",
@@ -42,13 +51,9 @@
       "args": ["-y", "@upstash/context7-mcp"]
     },
     "serena": {
-      "source": "custom",
-      "command": "uvx",
-      "args": [
-        "--from",
-        "git+https://github.com/oraios/serena",
-        "serena-mcp-server"
-      ]
+      "enabled": true,
+      "remote": false,
+      "settings": {}
     }
   },
 
