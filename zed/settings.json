@@ -2,8 +2,11 @@
 // Optimized for AI-powered development workflows
 {
   // ── Appearance ──────────────────────────────────────────────
+  "tabs": {
+    "close_position": "left"
+  },
   "project_panel": {
-    "dock": "right"
+    "dock": "left"
   },
   "outline_panel": {
     "dock": "right"
