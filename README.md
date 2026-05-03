@@ -9,7 +9,7 @@ Companion to [VT-Terminal-Project](https://github.com/ValentinTorassa/VT-Termina
 ## What it does
 
 ### AI suggestions in code (inline, as you type)
-Powered by the [Supermaven](https://supermaven.com) extension + Zed's built-in edit predictions — auto-installed and enabled by default.
+Powered by **Zeta**, Zed's built-in edit-prediction model — enabled by default, no sign-in required.
 
 | Feature | What you get |
 |---------|--------------|
@@ -38,7 +38,7 @@ Kept the ones that work *outside* Zed and don't duplicate built-ins.
 Outline, git, agent, chat, notifications, debugger, and collaboration panels are all docked to the right. The project panel sits on the left, tab close buttons on the left. The editor stays the focus, the bottom dock stays free for the terminal.
 
 ### Zed setup
-Catppuccin theme + icons (system light/dark), Discord presence, language packs for TOML / Dockerfile / `.env` / shell / GitHub Actions, inline git blame, format-on-save, Supermaven AI completions.
+Catppuccin theme + icons (system light/dark), Discord presence, language packs for TOML / Dockerfile / `.env` / shell / GitHub Actions, inline git blame, format-on-save, Zeta inline AI predictions.
 
 Full shortcut + script reference: [`cheatsheet/zed-shortcuts.md`](./cheatsheet/zed-shortcuts.md).
 
@@ -50,8 +50,6 @@ Full shortcut + script reference: [`cheatsheet/zed-shortcuts.md`](./cheatsheet/z
 git clone https://github.com/ValentinTorassa/VT-IDE-Project.git ~/.ide-config
 cd ~/.ide-config && ./install.sh
 ```
-
-After Zed restarts, sign in to Supermaven from the status bar (or run `supermaven-login` from the command palette) — the rest is wired up.
 
 ## Requirements
 macOS or Linux · Zed v0.200+ · [Claude Code CLI](https://claude.ai/claude-code) · `gh` · `jq` · `delta` · [`uv`](https://docs.astral.sh/uv/) (for Serena)

@@ -36,7 +36,6 @@
   },
 
   // ── Extensions (auto-installed) ────────────────────────────
-  // Supermaven = AI inline completion / snippet suggestions in code
   "auto_install_extensions": {
     "catppuccin": true,
     "catppuccin-icons": true,
@@ -45,19 +44,15 @@
     "dockerfile": true,
     "dotenv": true,
     "basher": true,
-    "github-actions": true,
-    "supermaven": true
+    "github-actions": true
   },
 
   // ── AI inline suggestions ──────────────────────────────────
-  // Provider options:
-  //   "zed"        — Zeta (default, multi-line + deletions, no sign-in)
-  //   "supermaven" — Supermaven (cursor-only, requires sign-in via status bar)
-  //   "copilot"    — GitHub Copilot
-  //   "none"       — disable
+  // Powered by Zeta — Zed's built-in edit-prediction model.
+  // No sign-in, multi-line + deletion suggestions, runs out of the box.
   // Mode: "eager" shows predictions inline as you type, "subtle" only on alt.
   "features": {
-    "edit_prediction_provider": "supermaven"
+    "edit_prediction_provider": "zed"
   },
   "show_inline_completions": true,
   "show_edit_predictions": true,

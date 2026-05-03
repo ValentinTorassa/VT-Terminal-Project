@@ -6,9 +6,8 @@ Bindings use `ctrl` (Linux). On macOS, press `cmd` wherever you see `ctrl`.
 ---
 
 ## AI Suggestions in Code (auto-on)
-Driven by the **Supermaven** extension + Zed's built-in edit predictions.
-Both are auto-installed and enabled — no keymap needed for the suggestions themselves,
-they appear inline as you type.
+Driven by **Zeta**, Zed's built-in edit-prediction model.
+No sign-in needed — suggestions appear inline as you type.
 
 | Shortcut | Action |
 |----------|--------|
@@ -105,7 +104,6 @@ Drop these into the agent panel or use them via the `claude` CLI.
 ## Extensions (auto-installed via `settings.json`)
 | Extension | Purpose |
 |-----------|---------|
-| `supermaven` | **AI inline completions / snippet suggestions in code** |
 | `catppuccin` | Theme (Latte light / Mocha dark) |
 | `catppuccin-icons` | Icon theme matching the colour scheme |
 | `discord-presence` | Show current file/language in your Discord status |
