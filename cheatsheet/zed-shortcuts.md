@@ -5,10 +5,24 @@ Bindings use `ctrl` (Linux). On macOS, press `cmd` wherever you see `ctrl`.
 
 ---
 
-## AI Assistant (custom — defined in `zed/keymap.json`)
+## AI Suggestions in Code (auto-on)
+Driven by the **Supermaven** extension + Zed's built-in edit predictions.
+Both are auto-installed and enabled — no keymap needed for the suggestions themselves,
+they appear inline as you type.
+
+| Shortcut | Action |
+|----------|--------|
+| `Tab` | Accept the inline / edit-prediction suggestion |
+| `Esc` | Dismiss the current suggestion |
+| `Alt+\\` | Manually trigger an inline completion |
+
+Tweak in `zed/settings.json` via `show_inline_completions`, `show_edit_predictions`,
+and `edit_predictions.mode`.
+
+## AI Assistant (custom — `zed/keymap.json`)
 | Shortcut | Context | Action |
 |----------|---------|--------|
-| `Ctrl+Shift+A` | Workspace | Toggle AI Assistant panel |
+| `Ctrl+Shift+A` | Workspace | Toggle AI agent panel (right dock) |
 | `Ctrl+Shift+Enter` | Workspace | Inline AI assist (free-form prompt) |
 | `Ctrl+Enter` | Editor | Inline assist on current selection |
 
@@ -25,8 +39,15 @@ Bindings use `ctrl` (Linux). On macOS, press `cmd` wherever you see `ctrl`.
 |----------|--------|
 | `Ctrl+Shift+O` | File finder |
 | `Ctrl+Shift+F` | Project-wide search |
-| `Ctrl+Shift+G` | Toggle bottom dock (git / terminal) |
+| `Ctrl+Shift+G` | Toggle bottom dock |
 | `` Ctrl+` `` | Toggle terminal panel |
+
+---
+
+## Layout — principal panels on the right
+Outline, git, agent, chat, notifications, debugger, and collaboration are docked
+to the right. The project panel stays on the left and tab close buttons are on
+the left too. The editor stays centered, the bottom dock stays free for the terminal.
 
 ---
 
@@ -36,7 +57,7 @@ Bindings use `ctrl` (Linux). On macOS, press `cmd` wherever you see `ctrl`.
 | `Ctrl+Shift+P` | Command palette |
 | `Ctrl+,` | Open settings |
 | `Ctrl+K Ctrl+S` | View all keyboard shortcuts |
-| `Ctrl+\\` | Toggle left sidebar |
+| `Ctrl+\\` | Toggle right sidebar |
 | `Ctrl+J` | Toggle bottom panel |
 | `Ctrl+Tab` | Switch between open files |
 | `Ctrl+/` | Toggle line comment |
@@ -49,11 +70,13 @@ Run these in any terminal (system or Zed's integrated). All use the `claude` CLI
 
 | Command | What it does |
 |---------|--------------|
-| `vt-pr` | Fetch and summarize any GitHub PR with AI |
 | `vt-diff` | Explain your current `git diff` (unstaged, staged, or vs branch) |
 | `vt-review` | AI code review on staged changes or a branch |
 | `vt-conflict` | AI-assisted merge conflict resolution |
-| `vt-commit` | Generate a smart commit message from staged changes |
+
+> Removed because Zed/MCP already do the same job:
+> - **commit messages** → Zed git panel → "Generate commit message"
+> - **PR summaries** → GitHub MCP server in the agent panel
 
 ### Common `vt-diff` / `vt-review` usage
 ```bash
@@ -69,23 +92,24 @@ vt-review --branch main  # review full branch diff
 ---
 
 ## Prompt Library (in `prompts/`)
-Drop these into the AI panel or use them via the `claude` CLI.
+Drop these into the agent panel or use them via the `claude` CLI.
 
 | Prompt | Purpose |
 |--------|---------|
 | `/review` | Deep code review — security, performance, correctness |
 | `/explain-diff` | Explain what changed and why |
 | `/fix-conflict` | Resolve merge conflicts with context |
-| `/pr-summary` | Generate PR title and description |
 
 ---
 
 ## Extensions (auto-installed via `settings.json`)
 | Extension | Purpose |
 |-----------|---------|
+| `supermaven` | **AI inline completions / snippet suggestions in code** |
 | `catppuccin` | Theme (Latte light / Mocha dark) |
 | `catppuccin-icons` | Icon theme matching the colour scheme |
 | `discord-presence` | Show current file/language in your Discord status |
+| `toml`, `dockerfile`, `dotenv`, `basher`, `github-actions` | Language support packs |
 
 ---
 

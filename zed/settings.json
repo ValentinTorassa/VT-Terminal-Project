@@ -1,24 +1,16 @@
 // VT IDE Project — Zed Settings
 // Optimized for AI-powered development workflows
 {
-  // ── Appearance ──────────────────────────────────────────────
-  "tabs": {
-    "close_position": "left"
-  },
-  "project_panel": {
-    "dock": "left"
-  },
-  "outline_panel": {
-    "dock": "right"
-  },
-  "collaboration_panel": {
-    "dock": "right"
-  },
-  "git_panel": {
-    "dock": "right"
-  },
+  // ── Docks: principal panels on the right, project panel on the left ─
+  "tabs": { "close_position": "left" },
+  "project_panel": { "dock": "left" },
+  "outline_panel": { "dock": "right" },
+  "collaboration_panel": { "dock": "right" },
+  "git_panel": { "dock": "right" },
+  "chat_panel": { "dock": "right" },
+  "notification_panel": { "dock": "right" },
+  "debugger": { "dock": "right" },
   "agent": {
-    "dock": "right",
     "default_model": {
       "provider": "anthropic",
       "model": "claude-sonnet-4-6-latest",
@@ -27,6 +19,8 @@
     "favorite_models": [],
     "model_parameters": []
   },
+
+  // ── Appearance ──────────────────────────────────────────────
   "ui_font_size": 16,
   "buffer_font_size": 15,
   "buffer_font_family": "JetBrains Mono",
@@ -40,6 +34,9 @@
     "light": "Catppuccin Latte",
     "dark": "Catppuccin Mocha"
   },
+
+  // ── Extensions (auto-installed) ────────────────────────────
+  // Supermaven = AI inline completion / snippet suggestions in code
   "auto_install_extensions": {
     "catppuccin": true,
     "catppuccin-icons": true,
@@ -50,6 +47,22 @@
     "basher": true,
     "github-actions": true,
     "supermaven": true
+  },
+
+  // ── AI inline suggestions ──────────────────────────────────
+  // Provider options:
+  //   "zed"        — Zeta (default, multi-line + deletions, no sign-in)
+  //   "supermaven" — Supermaven (cursor-only, requires sign-in via status bar)
+  //   "copilot"    — GitHub Copilot
+  //   "none"       — disable
+  // Mode: "eager" shows predictions inline as you type, "subtle" only on alt.
+  "features": {
+    "edit_prediction_provider": "supermaven"
+  },
+  "show_inline_completions": true,
+  "show_edit_predictions": true,
+  "edit_predictions": {
+    "mode": "eager"
   },
 
   // ── MCP servers (Model Context Protocol) ────────────────────
@@ -79,7 +92,6 @@
   "format_on_save": "on",
   "soft_wrap": "preferred_line_length",
   "preferred_line_length": 100,
-  "show_inline_completions": true,
   "scroll_beyond_last_line": "one_page",
   "relative_line_numbers": true,
   "cursor_blink": false,
@@ -106,21 +118,6 @@
     "git_gutter": "tracked_files"
   },
 
-  // ── AI Assistant ────────────────────────────────────────────
-  "assistant": {
-    "version": "2",
-    "default_model": {
-      "provider": "anthropic",
-      "model": "claude-sonnet-4-20250514"
-    }
-  },
-
-  // ── File associations ───────────────────────────────────────
-  "file_types": {
-    "Dockerfile": ["Dockerfile", "Dockerfile.*"],
-    "JSON": ["*.jsonc", ".prettierrc", ".eslintrc"]
-  },
-
   // ── Files to exclude from project ──────────────────────────
   "file_scan_exclusions": [
     "**/.git",
@@ -130,42 +127,5 @@
     "**/dist",
     "**/.next",
     "**/__pycache__"
-  ],
-
-  // ── LSP: Discord Presence ──────────────────────────────────
-  "lsp": {
-    "discord_presence": {
-      "initialization_options": {
-        "application_id": "1263505205522337886",
-        "base_icons_url": "https://raw.githubusercontent.com/xhyrom/zed-discord-presence/main/assets/icons/",
-        "state": "Working in Zed",
-        "details": "Valen is focused",
-        "large_image": "{base_icons_url}/{language:lo}.png",
-        "large_text": "{language:u}",
-        "small_image": "{base_icons_url}/zed.png",
-        "small_text": "Zed",
-        "idle": {
-          "timeout": 300,
-          "action": "change_activity",
-          "state": "Chilling a bit",
-          "details": "Still in Zed",
-          "large_image": "{base_icons_url}/zed.png",
-          "large_text": "Zed",
-          "small_image": "{base_icons_url}/idle.png",
-          "small_text": "Idle"
-        },
-        "rules": {
-          "mode": "blacklist",
-          "paths": []
-        },
-        "git_integration": true,
-        "languages": {
-          "rust": {
-            "state": "Hacking on Rust",
-            "details": "Rustacean at work"
-          }
-        }
-      }
-    }
-  }
+  ]
 }
