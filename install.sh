@@ -48,9 +48,19 @@ symlink() {
 
 # ── Check platform ───────────────────────────────────────────
 
-if [[ "$(uname)" != "Darwin" ]]; then
-  warn "This installer is designed for macOS. Some features may not work on $(uname)."
-fi
+case "$(uname)" in
+  Darwin|Linux) ;;
+  *) warn "Untested platform: $(uname). Some features may not work." ;;
+esac
+
+# Per-OS install hint helper (e.g. Homebrew on macOS, apt on Debian/Ubuntu).
+brew_or_apt() {
+  if [[ "$(uname)" == "Darwin" ]]; then
+    echo "brew install $1"
+  else
+    echo "sudo apt install $1  # or your distro's equivalent"
+  fi
+}
 
 # ── Check dependencies ───────────────────────────────────────
 
@@ -70,11 +80,11 @@ check_dep() {
   fi
 }
 
-check_dep "zed"  "Zed CLI" "Install from https://zed.dev or run: zed → Cmd+Shift+P → 'install cli'"
-check_dep "gh"   "GitHub CLI" "brew install gh"
+check_dep "zed"  "Zed CLI" "Install from https://zed.dev or run: Zed → command palette → 'install cli'"
+check_dep "gh"   "GitHub CLI" "$(brew_or_apt gh)"
 check_dep "claude" "Claude Code" "npm install -g @anthropic-ai/claude-code"
-check_dep "jq"   "jq" "brew install jq"
-check_dep "delta" "delta" "brew install git-delta"
+check_dep "jq"   "jq" "$(brew_or_apt jq)"
+check_dep "delta" "delta" "$(brew_or_apt git-delta)"
 check_dep "git"  "git"
 
 if [[ ${#MISSING[@]} -gt 0 ]]; then
@@ -97,6 +107,16 @@ symlink "$SCRIPT_DIR/zed/keymap.json"   "$ZED_CONFIG_DIR/keymap.json"
 echo -e "\n${BOLD}Installing VT workflow scripts...${RESET}\n"
 
 mkdir -p "$BIN_DIR"
+
+# Remove stale vt-* symlinks pointing to scripts no longer in this repo.
+for link in "$BIN_DIR"/vt-*; do
+  [[ -L "$link" ]] || continue
+  target="$(readlink "$link")"
+  if [[ "$target" == "$SCRIPT_DIR/scripts/"* && ! -e "$target" ]]; then
+    rm "$link"
+    info "Removed stale symlink $(basename "$link")"
+  fi
+done
 
 for script in "$SCRIPT_DIR"/scripts/vt-*; do
   script_name="$(basename "$script")"
@@ -128,18 +148,17 @@ if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
   fi
 fi
 
-# ── Install Zed extensions ──────────────────────────────────
+# ── Zed extensions ──────────────────────────────────────────
+# These are declared in zed/settings.json under auto_install_extensions and
+# Zed picks them up on next launch — this section is informational only.
 
-echo -e "\n${BOLD}Installing Zed extensions...${RESET}\n"
+echo -e "\n${BOLD}Zed extensions (auto-installed on next Zed launch):${RESET}\n"
 
-if command -v zed &>/dev/null; then
-  EXTENSIONS=("html" "make" "discord-presence")
-  for ext in "${EXTENSIONS[@]}"; do
-    info "Extension: $ext (install via Zed → Cmd+Shift+P → 'extensions' if not present)"
-  done
-else
-  warn "Zed CLI not available — install extensions manually from the Extensions panel"
-fi
+EXTENSIONS=(catppuccin catppuccin-icons discord-presence toml dockerfile dotenv basher github-actions)
+for ext in "${EXTENSIONS[@]}"; do
+  info "$ext"
+done
+info "If any are missing after launch, install via: Zed → command palette → 'zed: extensions'"
 
 # ── Summary ─────────────────────────────────────────────────
 
