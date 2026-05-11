@@ -15,12 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ZED_CONFIG_DIR="$HOME/.config/zed"
 BIN_DIR="$HOME/.local/bin"
 
-echo -e "${BOLD}${CYAN}"
-echo "╔══════════════════════════════════════╗"
-echo "║        VT IDE Project Setup          ║"
-echo "║   Zed + Claude AI + Git Workflows    ║"
-echo "╚══════════════════════════════════════╝"
-echo -e "${RESET}"
+bash "$SCRIPT_DIR/scripts/vt-ide"
 
 # ── Helper functions ──────────────────────────────────────────
 
@@ -176,6 +171,7 @@ echo -e "${BOLD}Quick start:${RESET}"
 echo -e "  ${CYAN}vt-diff${RESET}       Explain your current changes"
 echo -e "  ${CYAN}vt-review${RESET}     AI code review"
 echo -e "  ${CYAN}vt-conflict${RESET}   Resolve merge conflicts"
+echo -e "  ${CYAN}vt-ide${RESET}        Print the VT IDE banner"
 echo -e "  ${DIM}(commit messages → Zed git panel · PR triage → GitHub MCP in agent panel)${RESET}"
 echo ""
 echo -e "${DIM}Cheatsheet: cat $(basename "$SCRIPT_DIR")/cheatsheet/zed-shortcuts.md${RESET}"

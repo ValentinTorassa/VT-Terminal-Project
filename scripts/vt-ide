@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# VT IDE Project — banner
+CYAN=$'\033[1;36m'
+DIM=$'\033[2m'
+RESET=$'\033[0m'
+
+echo
+echo "${CYAN} ██╗   ██╗████████╗    ██╗██████╗ ███████╗${RESET}"
+echo "${CYAN} ██║   ██║╚══██╔══╝    ██║██╔══██╗██╔════╝${RESET}"
+echo "${CYAN} ██║   ██║   ██║       ██║██║  ██║█████╗  ${RESET}"
+echo "${CYAN} ╚██╗ ██╔╝   ██║       ██║██║  ██║██╔══╝  ${RESET}"
+echo "${CYAN}  ╚████╔╝    ██║       ██║██████╔╝███████╗${RESET}"
+echo "${CYAN}   ╚═══╝     ╚═╝       ╚═╝╚═════╝ ╚══════╝${RESET}"
+echo "${DIM}        AI-native Zed setup · companion to VT Terminal${RESET}"
+echo

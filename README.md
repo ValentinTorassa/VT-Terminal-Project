@@ -1,5 +1,15 @@
 # VT IDE Project
 
+```
+ ██╗   ██╗████████╗    ██╗██████╗ ███████╗
+ ██║   ██║╚══██╔══╝    ██║██╔══██╗██╔════╝
+ ██║   ██║   ██║       ██║██║  ██║█████╗
+ ╚██╗ ██╔╝   ██║       ██║██║  ██║██╔══╝
+  ╚████╔╝    ██║       ██║██████╔╝███████╗
+   ╚═══╝     ╚═╝       ╚═╝╚═════╝ ╚══════╝
+        AI-native Zed setup · companion to VT Terminal
+```
+
 AI-native [Zed](https://zed.dev) setup. Inline AI suggestions as you type, MCP tools wired into the agent panel, every dock pinned to the right, and a theme that doesn't hurt your eyes.
 
 Companion to [VT-Terminal-Project](https://github.com/ValentinTorassa/VT-Terminal-Project).
@@ -31,6 +41,7 @@ Kept the ones that work *outside* Zed and don't duplicate built-ins.
 | `vt-diff` | Structured summary of your diff: *Summary · Key changes · Impact · Risk* |
 | `vt-review` | Code review on staged changes or a branch |
 | `vt-conflict` | Merge-conflict resolver with repo context |
+| `vt-ide` | Print the VT IDE banner |
 
 > **Removed:** `vt-commit` (Zed's git panel generates commit messages with AI) and `vt-pr` (covered by the GitHub MCP server).
 
