@@ -12,7 +12,6 @@
   "debugger": { "dock": "right" },
   "agent": {
     "default_model": {
-      "provider": "amazon-bedrock",
       "model": "claude-opus-4-7",
       "enable_thinking": true,
       "effort": "high"
