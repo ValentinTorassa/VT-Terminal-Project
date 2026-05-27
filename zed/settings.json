@@ -12,8 +12,8 @@
   "debugger": { "dock": "right" },
   "agent": {
     "default_model": {
-      "provider": "zed.dev",
-      "model": "claude-sonnet-4-6",
+      "provider": "amazon-bedrock",
+      "model": "claude-opus-4-7",
       "enable_thinking": true,
       "effort": "high"
     },
@@ -52,7 +52,6 @@
     "edit_prediction_provider": "zed"
   },
   "show_inline_completions": true,
-  "show_edit_predictions": true,
   "edit_predictions": {
     "mode": "eager"
   },
