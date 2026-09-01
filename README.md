@@ -60,6 +60,8 @@ cd ~/.dotfiles
 | `ll` | list files with icons and git status |
 | `git diff` | see changes (side-by-side with delta) |
 | `vt-term` | print the VT Terminal banner |
+| `cr` | choose and resume any personal/team Claude conversation |
+| `cl` | resume the newest Claude conversation across both accounts |
 
 ## AI features
 
@@ -71,6 +73,8 @@ Set `VT_ANTHROPIC_KEY` to enable:
 | `aiexplain [question]` | Explain last output (or pipe: `cmd \| aiexplain "why"`) |
 | `aicommit` | Generate commit message from staged changes |
 | `Alt+A` | AI auto-complete current command |
+| `cr` | Search Claude history by account, date, and project directory |
+| `cl` | Resume the most recently active Claude conversation |
 
 ## License
 

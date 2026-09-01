@@ -37,6 +37,10 @@ serve() {
   python3 -m http.server "$port"
 }
 
+# Resume Claude conversations across personal and team accounts.
+cr() { "$DOTFILES_DIR/scripts/claude-resume" "$@"; }
+cl() { "$DOTFILES_DIR/scripts/claude-resume" --last; }
+
 # Docker shell into a running container
 dksh() {
   local container

@@ -1,0 +1,150 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+mode="pick"
+case "${1:-}" in
+  --last) mode="last" ;;
+  --list) mode="list" ;;
+  -h|--help)
+    echo "Usage: claude-resume [--last|--list]"
+    echo "  no option  choose a personal or team conversation with fzf"
+    echo "  --last    resume the most recently active conversation"
+    echo "  --list    list conversations without resuming"
+    exit 0
+    ;;
+  "") ;;
+  *)
+    echo "Unknown option: $1" >&2
+    exit 2
+    ;;
+esac
+
+for dependency in jq claude; do
+  if ! command -v "$dependency" >/dev/null 2>&1; then
+    echo "Required command not found: $dependency" >&2
+    exit 127
+  fi
+done
+if [[ "$mode" == "pick" ]] && ! command -v fzf >/dev/null 2>&1; then
+  echo "Required command not found: fzf" >&2
+  exit 127
+fi
+
+index_file="$(mktemp)"
+trap 'rm -f "$index_file"' EXIT
+
+file_mtime() {
+  stat -c %Y "$1" 2>/dev/null || stat -f %m "$1"
+}
+
+format_time() {
+  date -d "@$1" '+%Y-%m-%d %H:%M' 2>/dev/null || date -r "$1" '+%Y-%m-%d %H:%M'
+}
+
+index_account() {
+  local account="$1" config_dir="$2" session_file metadata title
+  local session_id cwd modified display_time
+  local -a session_files
+
+  shopt -s nullglob
+  session_files=("$config_dir"/projects/*/*.jsonl)
+  shopt -u nullglob
+
+  for session_file in "${session_files[@]}"; do
+    metadata="$(jq -nr '
+      first(
+        inputs
+        | select(.sessionId and .cwd and (.isSidechain != true))
+        | [.sessionId, .cwd]
+        | @tsv
+      ) // empty
+    ' "$session_file" 2>/dev/null)"
+    [[ -n "$metadata" ]] || continue
+
+    IFS=$'\t' read -r session_id cwd <<< "$metadata"
+    title="$(jq -nr '
+      first(
+        inputs
+        | select((.aiTitle // .title // "") != "")
+        | (.aiTitle // .title)
+        | gsub("[\\t\\r\\n]+"; " ")
+        | .[0:80]
+      ) // empty
+    ' "$session_file" 2>/dev/null)"
+    [[ -n "$title" ]] || title="(untitled)"
+    modified="$(file_mtime "$session_file")"
+    display_time="$(format_time "$modified")"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "$modified" "$account" "$display_time" "$title" "$cwd" "$session_id" "$config_dir" \
+      >> "$index_file"
+  done
+}
+
+index_account "personal" "$HOME/.claude"
+index_account "teams" "$HOME/.claude-teams"
+
+if [[ ! -s "$index_file" ]]; then
+  echo "No Claude conversations found." >&2
+  exit 1
+fi
+
+if [[ "$mode" == "list" ]]; then
+  printf '%-10s  %-16s  %-40s  %s\n' "ACCOUNT" "LAST ACTIVE" "CONVERSATION" "DIRECTORY"
+  sort -t $'\t' -k1,1nr "$index_file" |
+    while IFS=$'\t' read -r _ account active title cwd _ _; do
+      printf '%-10s  %-16s  %-40s  %s\n' "$account" "$active" "$title" "$cwd"
+    done
+  exit 0
+fi
+
+selection=""
+if [[ "$mode" == "last" ]]; then
+  while IFS= read -r selection; do
+    break
+  done < <(sort -t $'\t' -k1,1nr "$index_file")
+else
+  fzf_options=(
+    --delimiter=$'\t'
+    --with-nth=2,3,4,5
+    --height=90%
+    --min-height=20
+    --layout=reverse
+    --border=rounded
+    --border-label=' Claude conversations '
+    --border-label-pos=3
+    --padding=1,2
+    --margin=1,2
+    --cycle
+    --info=inline-right
+    --prompt='Resume > '
+    --pointer='>'
+    --marker='+'
+    --header='Enter: resume  |  Esc: cancel  |  Type to filter by account, title, or path'
+    --header-first
+    --preview='printf "\033[1;35mAccount\033[0m\n  %s\n\n\033[1;35mLast active\033[0m\n  %s\n\n\033[1;35mConversation\033[0m\n  %s\n\n\033[1;35mDirectory\033[0m\n  %s\n" {2} {3} {4} {5}'
+    --preview-window='down,40%,border-rounded'
+    --preview-label=' Details '
+    --color='bg:#1e1e2e,bg+:#313244,fg:#cdd6f4,fg+:#ffffff,hl:#89b4fa,hl+:#89dceb,spinner:#f5e0dc,header:#a6adc8,info:#6c7086,pointer:#f5c2e7,marker:#a6e3a1,prompt:#cba6f7,border:#585b70,label:#cba6f7,preview-border:#45475a,preview-label:#89b4fa'
+  )
+  selection="$(
+    sort -t $'\t' -k1,1nr "$index_file" |
+      fzf "${fzf_options[@]}"
+  )"
+fi
+
+[[ -n "$selection" ]] || exit 0
+IFS=$'\t' read -r _ account active title cwd session_id config_dir <<< "$selection"
+
+if [[ ! -d "$cwd" ]]; then
+  echo "The original directory no longer exists: $cwd" >&2
+  exit 1
+fi
+
+echo "Resuming $account conversation from $cwd"
+cd "$cwd"
+
+if [[ "$account" == "teams" ]]; then
+  exec env -u ANTHROPIC_API_KEY CLAUDE_CONFIG_DIR="$config_dir" claude --resume "$session_id"
+else
+  exec env -u ANTHROPIC_API_KEY claude --resume "$session_id"
+fi

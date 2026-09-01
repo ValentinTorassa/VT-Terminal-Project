@@ -14,6 +14,8 @@
 | `ai <question>` | Ask AI for a terminal command |
 | `aiexplain [question]` | Explain last output (or pipe: `cmd \| aiexplain "why"`) |
 | `aicommit` | Generate AI commit message from staged changes |
+| `cr` | Choose a personal/team Claude conversation to resume |
+| `cl` | Resume the newest Claude conversation across both accounts |
 
 ## Useful Functions
 

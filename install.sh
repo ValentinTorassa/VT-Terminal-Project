@@ -59,10 +59,12 @@ else
 fi
 
 echo ""
-echo "[*] Installing vt-term command..."
+echo "[*] Installing terminal commands..."
 mkdir -p "$HOME/.local/bin"
 ln -sf "$DOTFILES_DIR/scripts/vt-term" "$HOME/.local/bin/vt-term"
+ln -sf "$DOTFILES_DIR/scripts/claude-resume" "$HOME/.local/bin/claude-resume"
 echo "  -> ~/.local/bin/vt-term"
+echo "  -> ~/.local/bin/claude-resume"
 
 echo ""
 echo "=================================="
