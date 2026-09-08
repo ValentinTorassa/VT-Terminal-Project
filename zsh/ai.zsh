@@ -51,7 +51,7 @@ ai() {
 VT_LAST_OUTPUT="/tmp/vt_last_output_${$}"
 
 _vt_preexec() {
-  [[ "$1" =~ ^(ai|aiexplain|aicommit|claude|codex|gemini|antigravity) ]] && return
+  [[ "$1" =~ ^(ai|aiexplain|aicommit|claude|codex|gemini|antigravity|exec|exit|clear|cd|ls|history) ]] && return
   : > "$VT_LAST_OUTPUT"
   exec {_VT_OUT_FD}>&1
   exec 1> >(tee "$VT_LAST_OUTPUT" >&$_VT_OUT_FD 2>/dev/null)
