@@ -60,3 +60,5 @@ command -v fzf &>/dev/null && {
 # opencode
 export PATH=/Users/valen/.opencode/bin:$PATH
 export PATH="$HOME/.npm-global/bin:$PATH"
+
+. "$HOME/.local/bin/env"
