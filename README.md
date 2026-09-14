@@ -79,3 +79,7 @@ Set `VT_ANTHROPIC_KEY` to enable:
 ## License
 
 GPL-3.0 — see [LICENSE](./LICENSE).
+
+## Sesiones y foco
+
+`cheat workflow` abre la rutina de inicio/cierre y el formato de handoff. `wt <tarea>` crea una rama y worktree aislados; `VT_WORKTREE_ROOT` permite elegir dónde guardarlos. Ctrl+T busca desde el directorio actual; `ffall` es la búsqueda explícita de toda la máquina. Eliminar un worktree terminado solo después de revisar su estado y preservar/mergear su trabajo.
