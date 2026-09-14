@@ -48,8 +48,8 @@ command -v zoxide &>/dev/null && eval "$(zoxide init zsh)"
 command -v thefuck &>/dev/null && eval "$(thefuck --alias)"
 command -v fzf &>/dev/null && {
   export FZF_DEFAULT_OPTS="--height 40% --layout=reverse --border --info=inline"
-  export FZF_DEFAULT_COMMAND="fd --type f --hidden --follow --exclude .git"
-  export FZF_CTRL_T_COMMAND="fd . / --type f --hidden --follow --exclude .git --exclude node_modules --exclude .cache --exclude /proc --exclude /sys --exclude /dev 2>/dev/null"
+  export FZF_DEFAULT_COMMAND="fd --type f --hidden --exclude .git --exclude node_modules --exclude .cache"
+  export FZF_CTRL_T_COMMAND="fd --type f --hidden --exclude .git --exclude node_modules --exclude .cache"
 }
 
 # ---------- Powerlevel10k ----------
@@ -60,5 +60,3 @@ command -v fzf &>/dev/null && {
 # opencode
 export PATH=/Users/valen/.opencode/bin:$PATH
 export PATH="$HOME/.npm-global/bin:$PATH"
-
-. "$HOME/.local/bin/env"

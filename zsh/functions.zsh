@@ -82,3 +82,23 @@ cheat-add() {
   echo "| \`$shortcut\` | $description |" >> "$cheatdir/$category.md"
   echo "Added to $category cheatsheet"
 }
+
+# Explicit whole-machine search; Ctrl+T stays scoped to the current directory.
+ffall() {
+  fd . / --type f --hidden --exclude .git --exclude node_modules --exclude .cache 2>/dev/null |
+    fzf --header='Whole-machine file search'
+}
+
+# A separate branch/worktree for one task; fails safely on an existing name.
+wt() {
+  local task_slug="${1:-}" repo_root worktree_dir
+  if [[ -z "$task_slug" || "$task_slug" == *[^a-zA-Z0-9_-]* ]]; then
+    print -u2 'Usage: wt <task-name> (letters, digits, hyphens, underscores)'
+    return 2
+  fi
+  repo_root=$(git rev-parse --show-toplevel) || return
+  worktree_dir="${VT_WORKTREE_ROOT:-$HOME/.local/share/vt-worktrees}/${repo_root:t}/$task_slug"
+  mkdir -p "${worktree_dir:h}" || return
+  git worktree add -b "work/$task_slug" "$worktree_dir" HEAD || return
+  cd "$worktree_dir"
+}
