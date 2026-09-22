@@ -18,6 +18,6 @@ Blocker:
 Next action or command:
 ```
 
-For the 14–28 September experiment, keep one software outcome and one content outcome active. Review incoming tasks at the start and end of the workday. Count completed outcomes, unscheduled maintenance interruptions and context reconstruction episodes in the existing VT-Tasks note. Review the limit after two weeks.
+For the 14-28 September experiment, keep one software outcome and one content outcome active. Review incoming tasks at the start and end of the workday. Count completed outcomes, unscheduled maintenance interruptions and context reconstruction episodes in the existing VT-Tasks note. Review the limit after two weeks.
 
 The optional `$HOME/.local/bin/env` loader was removed after review: the loader is absent on this Mac and `.zshrc` already prepends `$HOME/.local/bin` explicitly. The change preserves the user's pending deletion.

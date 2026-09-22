@@ -78,7 +78,7 @@ Set `VT_ANTHROPIC_KEY` to enable:
 
 ## License
 
-GPL-3.0 — see [LICENSE](./LICENSE).
+GPL-3.0 - see [LICENSE](./LICENSE).
 
 ## Sesiones y foco
 

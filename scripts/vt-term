@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# VT Terminal Project — banner
+# VT Terminal Project - banner
 CYAN=$'\033[1;36m'
 DIM=$'\033[2m'
 RESET=$'\033[0m'
