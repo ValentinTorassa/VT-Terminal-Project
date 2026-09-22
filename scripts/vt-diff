@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# vt-diff — Show current diff with AI explanation
+# vt-diff - Show current diff with AI explanation
 # Usage: vt-diff [--staged] [--branch main] [file...]
 set -euo pipefail
 
@@ -10,7 +10,7 @@ DIM='\033[2m'
 RESET='\033[0m'
 
 show_help() {
-  echo -e "${CYAN}vt-diff${RESET} — AI-powered diff explanation"
+  echo -e "${CYAN}vt-diff${RESET} - AI-powered diff explanation"
   echo ""
   echo "Usage:"
   echo "  vt-diff                # Explain unstaged changes"
@@ -71,10 +71,10 @@ echo ""
 
 PROMPT="Explain this git diff concisely:
 
-1. **Summary** — One sentence: what changed and the likely intent
-2. **Key changes** — Bullet list of important modifications
-3. **Impact** — What parts of the system are affected
-4. **Risk** — Low/Medium/High
+1. **Summary** - One sentence: what changed and the likely intent
+2. **Key changes** - Bullet list of important modifications
+3. **Impact** - What parts of the system are affected
+4. **Risk** - Low/Medium/High
 
 Diff:
 $(echo "$DIFF" | head -400)"

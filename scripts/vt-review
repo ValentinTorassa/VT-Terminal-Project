@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# vt-review — AI code review on staged changes or branch diff
+# vt-review - AI code review on staged changes or branch diff
 # Usage: vt-review [--branch main] [--staged]
 set -euo pipefail
 
@@ -11,7 +11,7 @@ DIM='\033[2m'
 RESET='\033[0m'
 
 show_help() {
-  echo -e "${CYAN}vt-review${RESET} — AI code review"
+  echo -e "${CYAN}vt-review${RESET} - AI code review"
   echo ""
   echo "Usage:"
   echo "  vt-review              # Review unstaged changes"
@@ -69,11 +69,11 @@ For each issue found, report:
 - **Fix**: how to fix it
 
 Check for:
-1. Correctness — logic bugs, edge cases, off-by-one errors
-2. Security — injection, XSS, auth bypass, secrets in code
-3. Performance — unnecessary work, missing indexes, N+1 queries
-4. Error handling — uncaught exceptions, silent failures
-5. Code quality — naming, complexity, duplication
+1. Correctness - logic bugs, edge cases, off-by-one errors
+2. Security - injection, XSS, auth bypass, secrets in code
+3. Performance - unnecessary work, missing indexes, N+1 queries
+4. Error handling - uncaught exceptions, silent failures
+5. Code quality - naming, complexity, duplication
 
 End with a verdict: APPROVE / REQUEST CHANGES / NEEDS DISCUSSION
 

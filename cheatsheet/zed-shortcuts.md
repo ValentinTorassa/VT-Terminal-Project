@@ -1,4 +1,4 @@
-# Zed Shortcuts — VT IDE Project
+# Zed Shortcuts - VT IDE Project
 
 Full reference of every keybinding, CLI script, and prompt shipped with this setup.
 Bindings use `ctrl` (Linux). On macOS, press `cmd` wherever you see `ctrl`.
@@ -7,7 +7,7 @@ Bindings use `ctrl` (Linux). On macOS, press `cmd` wherever you see `ctrl`.
 
 ## AI Suggestions in Code (auto-on)
 Driven by **Zeta**, Zed's built-in edit-prediction model.
-No sign-in needed — suggestions appear inline as you type.
+No sign-in needed - suggestions appear inline as you type.
 
 | Shortcut | Action |
 |----------|--------|
@@ -18,7 +18,7 @@ No sign-in needed — suggestions appear inline as you type.
 Tweak in `zed/settings.json` via `show_inline_completions`, `show_edit_predictions`,
 and `edit_predictions.mode`.
 
-## AI Assistant (custom — `zed/keymap.json`)
+## AI Assistant (custom - `zed/keymap.json`)
 | Shortcut | Context | Action |
 |----------|---------|--------|
 | `Ctrl+Shift+A` | Workspace | Toggle AI agent panel (right dock) |
@@ -43,7 +43,7 @@ and `edit_predictions.mode`.
 
 ---
 
-## Layout — principal panels on the right
+## Layout - principal panels on the right
 Outline, git, agent, chat, notifications, debugger, and collaboration are docked
 to the right. The project panel stays on the left and tab close buttons are on
 the left too. The editor stays centered, the bottom dock stays free for the terminal.
@@ -95,7 +95,7 @@ Drop these into the agent panel or use them via the `claude` CLI.
 
 | Prompt | Purpose |
 |--------|---------|
-| `/review` | Deep code review — security, performance, correctness |
+| `/review` | Deep code review - security, performance, correctness |
 | `/explain-diff` | Explain what changed and why |
 | `/fix-conflict` | Resolve merge conflicts with context |
 
@@ -113,7 +113,7 @@ Drop these into the agent panel or use them via the `claude` CLI.
 
 ## Platform Notes
 
-**Linux:** `cmd` keys don't work — the Super/Windows key is captured by your
+**Linux:** `cmd` keys don't work - the Super/Windows key is captured by your
 window manager before Zed sees it. This keymap uses `ctrl` throughout.
 
 **macOS:** `ctrl` and `cmd` are distinct keys. Swap `ctrl` → `cmd` in
@@ -121,5 +121,5 @@ window manager before Zed sees it. This keymap uses `ctrl` throughout.
 
 **Discord Presence troubleshooting (Linux):**
 - Native Discord: works out of the box (IPC socket at `/run/user/$UID/discord-ipc-0`)
-- Flatpak/Snap Discord: IPC socket is sandboxed — symlink it manually or install native
+- Flatpak/Snap Discord: IPC socket is sandboxed - symlink it manually or install native
 - Enable Discord → Settings → Activity Privacy → "Share detected activities"

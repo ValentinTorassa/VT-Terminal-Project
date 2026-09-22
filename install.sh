@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# VT IDE Project — Installer
+# VT IDE Project - Installer
 # One-command setup for Zed + AI workflows
 set -euo pipefail
 
@@ -70,7 +70,7 @@ check_dep() {
   if command -v "$cmd" &>/dev/null; then
     success "$name $(command -v "$cmd")"
   else
-    warn "$name not found${install_hint:+ — $install_hint}"
+    warn "$name not found${install_hint:+ - $install_hint}"
     MISSING+=("$name")
   fi
 }
@@ -133,7 +133,7 @@ if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
     # Check if already added
     if ! grep -q 'VT IDE Project' "$SHELL_RC" 2>/dev/null; then
       echo '' >> "$SHELL_RC"
-      echo '# VT IDE Project — workflow scripts' >> "$SHELL_RC"
+      echo '# VT IDE Project - workflow scripts' >> "$SHELL_RC"
       echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$SHELL_RC"
       success "Added $BIN_DIR to PATH in $(basename "$SHELL_RC")"
       info "Run 'source $SHELL_RC' or restart your terminal to apply"
@@ -145,7 +145,7 @@ fi
 
 # ── Zed extensions ──────────────────────────────────────────
 # These are declared in zed/settings.json under auto_install_extensions and
-# Zed picks them up on next launch — this section is informational only.
+# Zed picks them up on next launch - this section is informational only.
 
 echo -e "\n${BOLD}Zed extensions (auto-installed on next Zed launch):${RESET}\n"
 

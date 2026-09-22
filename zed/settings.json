@@ -1,4 +1,4 @@
-// VT IDE Project — Zed Settings
+// VT IDE Project - Zed Settings
 // Optimized for AI-powered development workflows
 {
   // ── Docks: principal panels on the right, project panel on the left ─
@@ -44,7 +44,7 @@
   },
 
   // ── AI inline suggestions ──────────────────────────────────
-  // Powered by Zeta — Zed's built-in edit-prediction model.
+  // Powered by Zeta - Zed's built-in edit-prediction model.
   // No sign-in, multi-line + deletion suggestions, runs out of the box.
   // Mode: "eager" shows predictions inline as you type, "subtle" only on alt.
   "features": {
@@ -58,7 +58,7 @@
   // ── MCP servers (Model Context Protocol) ────────────────────
   // GitHub: needs GITHUB_PERSONAL_ACCESS_TOKEN in your shell env
   // Context7: no auth required
-  // Serena: requires `uv` (https://docs.astral.sh/uv/) — install with `curl -LsSf https://astral.sh/uv/install.sh | sh`
+  // Serena: requires `uv` (https://docs.astral.sh/uv/) - install with `curl -LsSf https://astral.sh/uv/install.sh | sh`
   "context_servers": {
     "github": {
       "source": "custom",

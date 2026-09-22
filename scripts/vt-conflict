@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# vt-conflict — AI-assisted merge conflict resolution
+# vt-conflict - AI-assisted merge conflict resolution
 # Usage: vt-conflict [file]
 set -euo pipefail
 
@@ -11,7 +11,7 @@ DIM='\033[2m'
 RESET='\033[0m'
 
 show_help() {
-  echo -e "${CYAN}vt-conflict${RESET} — AI merge conflict resolver"
+  echo -e "${CYAN}vt-conflict${RESET} - AI merge conflict resolver"
   echo ""
   echo "Usage:"
   echo "  vt-conflict             # Show all conflicted files and resolve interactively"

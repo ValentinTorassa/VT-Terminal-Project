@@ -1,4 +1,4 @@
-// VT IDE Project — Zed Keybindings
+// VT IDE Project - Zed Keybindings
 // Git workflow and AI shortcuts
 // Note: uses `ctrl` for Linux. On macOS, Zed auto-translates `ctrl` → `cmd`
 // for many defaults, but if you're on macOS and want native feel, swap ctrl → cmd.
