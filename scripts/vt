@@ -574,7 +574,7 @@ _py_uses_pytest() {
     return 0
   fi
   hit=$(cd "$P_DIR" && printf '%s\n' "$tf" | tr '\n' '\0' |
-    xargs -0 grep -El '^[[:space:]]*(import|from)[[:space:]]+pytest' 2>/dev/null | head -1)
+    xargs -0 grep -El '^[[:space:]]*(import|from)[[:space:]]+pytest' 2>/dev/null | sed -n 1p)
   if [ -n "$hit" ]; then
     PYTEST_WHY="$hit imports pytest"
     return 0
@@ -598,9 +598,9 @@ _py_test_cmd() {
     PT_WHY="$n test files; $PYTEST_WHY"
     return 0
   fi
-  if printf '%s\n' "$tf" | grep -q '^tests/'; then
+  if grep -q '^tests/' <<<"$tf"; then
     dir=tests
-  elif printf '%s\n' "$tf" | grep -q '^test/'; then
+  elif grep -q '^test/' <<<"$tf"; then
     dir="test"
   fi
   PT_CMD="$py -m unittest discover${dir:+ -s $dir}"
@@ -617,7 +617,7 @@ _py_check() {
     why="ruff is declared (lint)"
   fi
   if _py_declares mypy; then
-    if _py_table_keys tool.mypy | grep -qx files ||
+    if grep -qx files <<<"$(_py_table_keys tool.mypy)" ||
       grep -Eqs '^[[:space:]]*files[[:space:]]*=' "$P_DIR/mypy.ini" "$P_DIR/.mypy.ini"; then
       parts="${parts:+$parts && }$tp mypy"
       why="${why:+$why; }mypy is declared and its config sets files (typecheck)"
@@ -847,14 +847,14 @@ _tier_make() {
   mf=$(_makefile) || return 1
   case "$cmd" in
     check | test | build)
-      if _make_targets "$P_DIR/$mf" | grep -qx "$cmd"; then
+      if grep -qx "$cmd" <<<"$(_make_targets "$P_DIR/$mf")"; then
         _set "$mf" "make $cmd" "$mf has a '$cmd' target"
         return 0
       fi
       _note "$mf has no '$cmd' target"
       ;;
     setup)
-      if _make_targets "$P_DIR/$mf" | grep -qx setup; then
+      if grep -qx setup <<<"$(_make_targets "$P_DIR/$mf")"; then
         _note "$mf has a setup target, but vt setup only runs lockfile/manifest installs, so it is not used"
       fi
       ;;
@@ -1131,7 +1131,7 @@ resolve() {
     :
   else
     R_STATUS=none
-    if ! _has_root_manifest && [ -z "$(_files | head -1)" ]; then
+    if ! _has_root_manifest && [ -z "$(_files)" ]; then
       R_WHY="no files found in $P_DIR"
     elif ! _has_root_manifest; then
       case "$cmd" in
@@ -1168,7 +1168,7 @@ _reason() {
     refused) printf '%s' "$R_DENY" ;;
     monorepo)
       if [ "$R_SRC" = workspace ]; then
-        printf '%s\n' "$R_WHY" | head -1
+        printf '%s\n' "${R_WHY%%$'\n'*}"
         return 0
       fi
       printf '%s\n' "$R_WHY" | awk '
@@ -1184,7 +1184,7 @@ _reason() {
         printf '%s' "$R_WHY"
       fi
       ;;
-    *) printf '%s\n' "$R_WHY" | head -1 ;;
+    *) printf '%s\n' "${R_WHY%%$'\n'*}" ;;
   esac
 }
 
@@ -1305,10 +1305,10 @@ _doc() { printf '  %-5s %s\n' "$1" "$2"; }
 
 _tool_version() {
   case "$1" in
-    go) go version 2>/dev/null | head -1 ;;
-    make | gmake) "$1" --version 2>/dev/null | head -1 ;;
+    go) go version 2>/dev/null | sed -n 1p ;;
+    make | gmake) "$1" --version 2>/dev/null | sed -n 1p ;;
     shellcheck) shellcheck --version 2>/dev/null | sed -n 's/^version: /shellcheck /p' ;;
-    *) "$1" --version 2>/dev/null | head -1 ;;
+    *) "$1" --version 2>/dev/null | sed -n 1p ;;
   esac
 }
 
@@ -1403,7 +1403,7 @@ EOF
     fi
   fi
   if [ -f "$P_DIR/pyproject.toml" ]; then
-    eng=$(sed -n 's/^[[:space:]]*requires-python[[:space:]]*=[[:space:]]*//p' "$P_DIR/pyproject.toml" | head -1)
+    eng=$(sed -n 's/^[[:space:]]*requires-python[[:space:]]*=[[:space:]]*//p' "$P_DIR/pyproject.toml" | sed -n 1p)
     [ -n "$eng" ] && _doc info "pyproject.toml requires-python: $eng"
   fi
   if [ -f "$P_DIR/pyproject.toml" ] || _has_requirements "$P_DIR"; then
@@ -1416,7 +1416,7 @@ EOF
     fi
   fi
   if [ -f "$P_DIR/go.mod" ]; then
-    eng=$(sed -n 's/^go[[:space:]]\{1,\}//p' "$P_DIR/go.mod" | head -1)
+    eng=$(sed -n 's/^go[[:space:]]\{1,\}//p' "$P_DIR/go.mod" | sed -n 1p)
     [ -n "$eng" ] && _doc info "go.mod go directive: $eng"
   fi
   resolve doctor
@@ -1450,7 +1450,7 @@ cmd_each() {
   [ -d "$root" ] || die "not a directory: $root"
   root=$(cd "$root" && pwd -P)
   for d in "$root"/*; do
-    [ -d "$d" ] && [ -e "$d/.git" ] || continue
+    if ! { [ -d "$d" ] && [ -e "$d/.git" ]; }; then continue; fi
     repos="$repos$d$NL"
     name=${d##*/}
     [ ${#name} -gt "$colw" ] && colw=${#name}
