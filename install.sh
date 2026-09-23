@@ -27,7 +27,8 @@ fail()    { echo -e "${RED}[fail]${RESET} $1"; exit 1; }
 backup_file() {
   local file="$1"
   if [[ -f "$file" && ! -L "$file" ]]; then
-    local backup="${file}.backup.$(date +%Y%m%d%H%M%S)"
+    local backup
+    backup="${file}.backup.$(date +%Y%m%d%H%M%S)"
     cp "$file" "$backup"
     info "Backed up existing $(basename "$file") → $(basename "$backup")"
   fi
