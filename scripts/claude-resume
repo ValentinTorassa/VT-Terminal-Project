@@ -105,15 +105,15 @@ if [[ "$mode" == "last" ]]; then
 else
   fzf_options=(
     --delimiter=$'\t'
-    --with-nth=2,3,4,5
+    --with-nth='2,3,4,5'
     --height=90%
     --min-height=20
     --layout=reverse
     --border=rounded
     --border-label=' Claude conversations '
     --border-label-pos=3
-    --padding=1,2
-    --margin=1,2
+    --padding='1,2'
+    --margin='1,2'
     --cycle
     --info=inline-right
     --prompt='Resume > '

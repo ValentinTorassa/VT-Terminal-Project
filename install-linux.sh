@@ -156,8 +156,9 @@ if ! command -v ghostty &>/dev/null; then
     apt)
       GHOSTTY_DEB_URL=$(curl -s "https://api.github.com/repos/ghostty-org/ghostty/releases/latest" | jq -r '.assets[] | select(.name | endswith("_amd64.deb")) | .browser_download_url // empty' 2>/dev/null)
       if [[ -n "$GHOSTTY_DEB_URL" ]]; then
-        curl -Lo /tmp/ghostty.deb "$GHOSTTY_DEB_URL" &&
-        sudo dpkg -i /tmp/ghostty.deb || sudo apt install -f -y
+        if curl -Lo /tmp/ghostty.deb "$GHOSTTY_DEB_URL"; then
+          sudo dpkg -i /tmp/ghostty.deb || sudo apt install -f -y
+        fi
         rm -f /tmp/ghostty.deb
       else
         echo "  [!] Ghostty .deb not found in latest release"
