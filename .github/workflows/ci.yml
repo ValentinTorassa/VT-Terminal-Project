@@ -16,4 +16,16 @@ jobs:
           shellcheck
           install.sh install-linux.sh install-macos.sh
           scripts/symlink.sh scripts/uninstall.sh
-          scripts/claude-resume scripts/vt-term
+          scripts/claude-resume scripts/vt-term scripts/vt
+          tests/vt-test.sh
+  vt-tests:
+    # macOS runs /bin/bash 3.2, the version vt has to keep working on.
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - run: /bin/bash --version
+      - run: /bin/bash tests/vt-test.sh

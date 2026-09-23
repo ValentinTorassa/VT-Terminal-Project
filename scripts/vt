@@ -1,0 +1,1667 @@
+#!/usr/bin/env bash
+# vt - one command vocabulary for every repo.
+#
+#   vt [-C dir] check|test|build|setup|doctor [--dry-run]
+#   vt [-C dir] which [check|test|build|setup|doctor]
+#   vt [-C root] each <command> [--dry-run|--run]
+#
+# Each command is derived from files that exist in the repo: a .vt override,
+# package.json, pyproject.toml + uv.lock, pyproject/requirements, Cargo.toml,
+# go.mod, Makefile targets, or the git-tracked shell scripts. When no file
+# declares a command vt says so instead of guessing. Anything that matches the
+# denylist (recursive rm, prune, down -v, reset --hard, push, deploy, ...) is
+# refused, including commands from .vt and the npm scripts / make recipes a
+# command calls. There is no clean command.
+#
+# Written for bash 3.2 (macOS /bin/bash): no associative arrays, no mapfile.
+set -uo pipefail
+
+VT_VERSION="1.0.0"
+VT_NAMES="check test build setup doctor"
+NL='
+'
+TAB=$'\t'
+
+case "$0" in
+  /*) VT_SELF="$0" ;;
+  *) VT_SELF="$PWD/$0" ;;
+esac
+VT_BASH="${BASH:-bash}"
+
+# Paths that never count as projects, tests or scripts of the repo itself.
+EXCL_RE='(^|/)(node_modules|vendor|\.venv|venv|site-packages|target|dist|fixtures|__fixtures__|testdata)/'
+
+usage() {
+  cat <<'EOF'
+vt - one command vocabulary for every repo
+
+usage:
+  vt [-C dir] check     lint + typecheck + tests, as the repo declares them
+  vt [-C dir] test      the test suite
+  vt [-C dir] build     the build
+  vt [-C dir] setup     install the declared dependencies (lockfile installs only)
+  vt [-C dir] doctor    read-only report: toolchain, installed deps, resolved commands
+  vt [-C dir] which [cmd]            what would run and which file it came from
+  vt [-C root] each <cmd> [--dry-run|--run]
+                        run <cmd> (or `which`) in every git repo under root
+                        (root: -C, else $VT_WORKSPACE, else the current dir);
+                        `each setup` is a dry run unless --run is given
+
+options:
+  -C dir       operate on dir (default: current dir; vt walks up to the
+               nearest project file, stopping at the git root)
+  -n, --dry-run
+               print what would run and why, run nothing
+  --run        with `each setup`: really install
+  -h, --help   this help
+
+resolution order (first file that declares the command wins):
+  .vt (name=command lines) > package.json scripts > pyproject.toml + uv.lock >
+  pyproject.toml / requirements*.txt > Cargo.toml > go.mod > Makefile targets >
+  (no project file at the root) monorepo listing > tests/test_*.py > shell scripts
+
+exit codes: 0 ok, 1 command failed, 2 usage error, 3 nothing to run,
+            4 refused by the denylist
+EOF
+}
+
+die() {
+  printf 'vt: %s\n' "$*" >&2
+  exit 2
+}
+
+warn() { printf 'vt: %s\n' "$*" >&2; }
+
+_trim() {
+  local s="$1"
+  s="${s%$'\r'}"
+  s="${s#"${s%%[![:space:]]*}"}"
+  s="${s%"${s##*[![:space:]]}"}"
+  printf '%s' "$s"
+}
+
+_lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
+
+_oneline() { printf '%s' "$1" | tr '\t\n' '  '; }
+
+# Split a shell command line into its simple commands, one per line.
+_segments() { printf '%s\n' "$1" | awk '{ gsub(/&&|\|\||;|\||\(|\)/, "\n"); print }'; }
+
+# shellcheck disable=SC2016 # a sed expression, not a shell one
+_re_escape() { printf '%s' "$1" | sed 's/[].[\*^$()+?{|]/\\&/g'; }
+
+# ----------------------------------------------------------------------------
+# Project discovery
+# ----------------------------------------------------------------------------
+
+P_DIR=""
+P_GIT=0
+P_FILES=""
+P_FILES_READY=0
+
+_has_requirements() {
+  local f
+  for f in "$1"/requirements*.txt; do
+    [ -f "$f" ] && return 0
+  done
+  return 1
+}
+
+# A project file at the root of dir (the .vt override does not count).
+_has_manifest() {
+  local d="$1" f
+  for f in package.json pyproject.toml setup.py Cargo.toml go.mod GNUmakefile makefile Makefile; do
+    [ -f "$d/$f" ] && return 0
+  done
+  _has_requirements "$d"
+}
+
+_has_root_manifest() { _has_manifest "$P_DIR"; }
+
+find_project() {
+  local start="$1" top d
+  [ -d "$start" ] || die "not a directory: $start"
+  start=$(cd "$start" && pwd -P) || die "cannot enter $start"
+  if top=$(git -C "$start" rev-parse --show-toplevel 2>/dev/null) && [ -n "$top" ]; then
+    P_GIT=1
+    top=$(cd "$top" && pwd -P)
+    d="$start"
+    while :; do
+      if [ -f "$d/.vt" ] || _has_manifest "$d"; then
+        P_DIR="$d"
+        return 0
+      fi
+      [ "$d" = "$top" ] && break
+      case "$d" in "$top"/*) ;; *) break ;; esac
+      d=$(dirname "$d")
+    done
+    P_DIR="$top"
+  else
+    P_GIT=0
+    P_DIR="$start"
+  fi
+}
+
+# Files of the project, relative to P_DIR: git-tracked files inside a git
+# repo, otherwise everything outside the usual dependency/build directories.
+_files() {
+  if [ "$P_FILES_READY" = 0 ]; then
+    if [ "$P_GIT" = 1 ]; then
+      P_FILES=$(git -C "$P_DIR" -c core.quotePath=false ls-files 2>/dev/null)
+    else
+      P_FILES=$(cd "$P_DIR" && find . \( -name .git -o -name node_modules -o -name .venv \
+        -o -name venv -o -name target -o -name dist -o -name vendor \) -prune \
+        -o -type f -print 2>/dev/null | sed 's|^\./||' | LC_ALL=C sort)
+    fi
+    P_FILES_READY=1
+  fi
+  if [ -n "$P_FILES" ]; then
+    printf '%s\n' "$P_FILES"
+  fi
+}
+
+# Nested projects up to three directories deep: "dir<TAB>manifests".
+_subprojects() {
+  _files | grep -Ev "$EXCL_RE" | awk -F/ '
+    NF >= 2 && NF <= 4 {
+      b = $NF
+      if (b == "package.json" || b == "pyproject.toml" || b == "Cargo.toml" || b == "go.mod" ||
+          b == "setup.py" || b ~ /^requirements.*\.txt$/) {
+        d = $1
+        for (i = 2; i < NF; i++) d = d "/" $i
+        if (!(d in m)) { order[++n] = d; m[d] = b } else m[d] = m[d] ", " b
+      }
+    }
+    END { for (i = 1; i <= n; i++) print order[i] "\t" m[order[i]] }'
+}
+
+_found_files() {
+  local out="" f
+  for f in .vt package.json package-lock.json npm-shrinkwrap.json pnpm-lock.yaml yarn.lock \
+    bun.lock bun.lockb pyproject.toml uv.lock setup.py Cargo.toml Cargo.lock go.mod; do
+    [ -f "$P_DIR/$f" ] && out="${out:+$out, }$f"
+  done
+  f=$(_makefile) && out="${out:+$out, }$f"
+  for f in "$P_DIR"/requirements*.txt; do
+    [ -f "$f" ] && out="${out:+$out, }${f##*/}"
+  done
+  printf '%s' "$out"
+}
+
+# ----------------------------------------------------------------------------
+# Resolution state
+# ----------------------------------------------------------------------------
+
+R_STATUS=""   # run | builtin | none | disabled | monorepo | refused
+R_CMD=""      # the command line that would run
+R_SRC=""      # which file it came from
+R_WHY=""      # why (may be several lines)
+R_SCAN=""     # text checked against the denylist (defaults to R_CMD)
+R_DENY=""     # denylist hit, when refused
+NOTES=""      # detectors that were looked at and skipped, and why
+
+_set() {
+  R_STATUS=run
+  R_SRC="$1"
+  R_CMD="$2"
+  R_WHY="$3"
+}
+
+_note() { NOTES="${NOTES:+$NOTES$NL}$1"; }
+
+# ----------------------------------------------------------------------------
+# .vt override: `name=command` lines; `name=` (empty) disables a command
+# ----------------------------------------------------------------------------
+
+VT_LOADED=0
+VT_OVR=""
+VT_WARN=""
+
+_vt_load() {
+  [ "$VT_LOADED" = 1 ] && return 0
+  VT_LOADED=1
+  local f="$P_DIR/.vt" line k v n=0
+  [ -f "$f" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    n=$((n + 1))
+    line=$(_trim "$line")
+    case "$line" in '' | '#'*) continue ;; esac
+    case "$line" in
+      *=*) ;;
+      *)
+        VT_WARN="${VT_WARN:+$VT_WARN$NL}.vt line $n is not name=command; ignored"
+        continue
+        ;;
+    esac
+    k=$(_trim "${line%%=*}")
+    v=$(_trim "${line#*=}")
+    v=$(_oneline "$v")
+    case "$k" in
+      check | test | build | setup | doctor) VT_OVR="$VT_OVR$k$TAB$v$NL" ;;
+      clean) VT_WARN="${VT_WARN:+$VT_WARN$NL}.vt line $n: vt has no clean command; ignored" ;;
+      *) VT_WARN="${VT_WARN:+$VT_WARN$NL}.vt line $n: unknown name '$k' (known: $VT_NAMES); ignored" ;;
+    esac
+  done <"$f"
+}
+
+_tier_override() {
+  local cmd="$1" k v val="" found=0
+  _vt_load
+  while IFS="$TAB" read -r k v; do
+    if [ "$k" = "$cmd" ]; then
+      found=1
+      val="$v"
+    fi
+  done <<EOF
+$VT_OVR
+EOF
+  [ "$found" = 1 ] || return 1
+  if [ -z "$val" ]; then
+    R_STATUS=disabled
+    R_SRC=".vt"
+    R_WHY=".vt sets '$cmd=' (empty): this repo has nothing to run for $cmd"
+    return 0
+  fi
+  _set ".vt" "$val" ".vt override: $cmd=$val"
+}
+
+# ----------------------------------------------------------------------------
+# package.json
+# ----------------------------------------------------------------------------
+
+PKG_LOADED=0
+PKG_OK=0
+PKG_ERR=""
+PKG_SCRIPTS=""
+PKG_PM_FIELD=""
+PKG_DEPS=0
+
+_pkg_load() {
+  if [ "$PKG_LOADED" = 1 ]; then
+    [ "$PKG_OK" = 1 ]
+    return
+  fi
+  PKG_LOADED=1
+  [ -f "$P_DIR/package.json" ] || {
+    PKG_ERR="no package.json"
+    return 1
+  }
+  if ! command -v jq >/dev/null 2>&1; then
+    PKG_ERR="jq is not installed, so its scripts cannot be read"
+    return 1
+  fi
+  if ! PKG_SCRIPTS=$(jq -r '(.scripts // {}) | to_entries[] | select(.value | type == "string")
+      | [.key, .value] | @tsv' "$P_DIR/package.json" 2>/dev/null); then
+    PKG_ERR="not valid JSON"
+    return 1
+  fi
+  PKG_PM_FIELD=$(jq -r '(.packageManager // "") | split("@")[0]' "$P_DIR/package.json" 2>/dev/null)
+  PKG_DEPS=$(jq -r '[.dependencies, .devDependencies, .optionalDependencies]
+      | map(select(type == "object") | length) | add // 0' "$P_DIR/package.json" 2>/dev/null)
+  PKG_OK=1
+}
+
+_pkg_script() {
+  local want="$1" k v
+  [ "$PKG_OK" = 1 ] || return 1
+  while IFS="$TAB" read -r k v; do
+    if [ "$k" = "$want" ]; then
+      printf '%s' "$v"
+      return 0
+    fi
+  done <<EOF
+$PKG_SCRIPTS
+EOF
+  return 1
+}
+
+_pkg_pm() {
+  case "$PKG_PM_FIELD" in
+    npm | pnpm | yarn | bun)
+      printf '%s' "$PKG_PM_FIELD"
+      return
+      ;;
+  esac
+  if [ -f "$P_DIR/pnpm-lock.yaml" ]; then
+    printf pnpm
+  elif [ -f "$P_DIR/yarn.lock" ]; then
+    printf yarn
+  elif [ -f "$P_DIR/bun.lock" ] || [ -f "$P_DIR/bun.lockb" ]; then
+    printf bun
+  else
+    printf npm
+  fi
+}
+
+_pm_run() {
+  case "$1:$2" in
+    npm:test | pnpm:test | yarn:test) printf '%s test' "$1" ;;
+    *) printf '%s run %s' "$1" "$2" ;;
+  esac
+}
+
+_is_npm_placeholder() {
+  case "$1" in *"no test specified"*) return 0 ;; esac
+  return 1
+}
+
+# Programs that make a `verify` script a real aggregate check (as opposed to an
+# app subcommand that happens to be called verify).
+CHECK_TOOLS=" tsc eslint prettier biome vitest jest mocha ava tap c8 nyc playwright cypress astro svelte-check vue-tsc next stylelint oxlint knip turbo nx lerna tsd publint attw markdownlint make just "
+
+_looks_like_check() {
+  local seg w0 w1 i
+  local -a w
+  while IFS= read -r seg; do
+    w=()
+    read -r -a w <<<"$seg"
+    [ ${#w[@]} -gt 0 ] || continue
+    i=0
+    while [ "$i" -lt ${#w[@]} ]; do
+      case "${w[$i]}" in *=*) i=$((i + 1)) ;; *) break ;; esac
+    done
+    [ "$i" -lt ${#w[@]} ] || continue
+    w0=${w[$i]}
+    w1=${w[$((i + 1))]:-}
+    case "$w0" in
+      npm | pnpm | yarn | bun)
+        case "$w1" in run | run-script | test | t | tst | exec | x) return 0 ;; esac
+        if [ "$w0" != npm ] && [ -n "$w1" ] && _pkg_script "$w1" >/dev/null; then
+          return 0
+        fi
+        ;;
+      npx | bunx) w0=$w1 ;;
+      node | tsx)
+        case " $seg " in *" --test "*) return 0 ;; esac
+        ;;
+      deno)
+        case "$w1" in test | lint | check) return 0 ;; esac
+        ;;
+    esac
+    case "$CHECK_TOOLS" in *" $w0 "*) return 0 ;; esac
+  done <<EOF
+$(_segments "$1")
+EOF
+  return 1
+}
+
+_tier_node() {
+  local cmd="$1" pm body parts="" why="" s lock="" inst=""
+  [ -f "$P_DIR/package.json" ] || return 1
+  if ! _pkg_load; then
+    _note "package.json: $PKG_ERR"
+    return 1
+  fi
+  pm=$(_pkg_pm)
+  case "$cmd" in
+    check)
+      if body=$(_pkg_script verify); then
+        if _looks_like_check "$body"; then
+          _set package.json "$(_pm_run "$pm" verify)" "package.json scripts.verify = \"$body\""
+          return 0
+        fi
+        _note "package.json scripts.verify = \"$body\" is not used: it calls no other script and no test/lint/typecheck tool, so it is an app command, not a check"
+      fi
+      for s in lint typecheck type-check test; do
+        if [ "$s" = type-check ] && _pkg_script typecheck >/dev/null; then
+          continue
+        fi
+        body=$(_pkg_script "$s") || continue
+        if [ "$s" = test ] && _is_npm_placeholder "$body"; then
+          continue
+        fi
+        parts="${parts:+$parts && }$(_pm_run "$pm" "$s")"
+        why="${why:+$why$NL}package.json scripts.$s = \"$body\""
+      done
+      if [ -n "$parts" ]; then
+        _set package.json "$parts" "no usable verify script; chaining the lint/typecheck/test scripts that exist:$NL$why"
+        return 0
+      fi
+      _note "package.json has no usable verify script and no lint, typecheck or test script"
+      ;;
+    test)
+      if body=$(_pkg_script test) && ! _is_npm_placeholder "$body"; then
+        _set package.json "$(_pm_run "$pm" test)" "package.json scripts.test = \"$body\""
+        return 0
+      fi
+      _note "package.json has no test script (or only the npm init placeholder)"
+      ;;
+    build)
+      if body=$(_pkg_script build); then
+        _set package.json "$(_pm_run "$pm" build)" "package.json scripts.build = \"$body\""
+        return 0
+      fi
+      _note "package.json has no build script"
+      ;;
+    setup)
+      case "$pm" in
+        npm)
+          if [ -f "$P_DIR/package-lock.json" ]; then
+            lock=package-lock.json
+          elif [ -f "$P_DIR/npm-shrinkwrap.json" ]; then
+            lock=npm-shrinkwrap.json
+          fi
+          inst="npm ci"
+          ;;
+        pnpm)
+          [ -f "$P_DIR/pnpm-lock.yaml" ] && lock=pnpm-lock.yaml
+          inst="pnpm install --frozen-lockfile"
+          ;;
+        yarn)
+          [ -f "$P_DIR/yarn.lock" ] && lock=yarn.lock
+          if [ -f "$P_DIR/.yarnrc.yml" ]; then
+            inst="yarn install --immutable"
+          else
+            inst="yarn install --frozen-lockfile"
+          fi
+          ;;
+        bun)
+          if [ -f "$P_DIR/bun.lock" ]; then
+            lock=bun.lock
+          elif [ -f "$P_DIR/bun.lockb" ]; then
+            lock=bun.lockb
+          fi
+          inst="bun install --frozen-lockfile"
+          ;;
+      esac
+      if [ -n "$lock" ]; then
+        _set "package.json + $lock" "$inst" "$lock pins the dependencies; $inst installs exactly what it lists and never rewrites it"
+        return 0
+      fi
+      if [ "${PKG_DEPS:-0}" = 0 ]; then
+        _note "package.json declares no dependencies: nothing for $pm to install"
+      else
+        _note "package.json declares $PKG_DEPS dependencies but there is no $pm lockfile; '$pm install' would resolve and write one, so vt does not run it"
+      fi
+      ;;
+  esac
+  return 1
+}
+
+# ----------------------------------------------------------------------------
+# Python (pyproject.toml / requirements*.txt)
+# ----------------------------------------------------------------------------
+
+_py_table() {
+  local f="$P_DIR/pyproject.toml" re
+  [ -f "$f" ] || return 1
+  re=$(_re_escape "$1")
+  if [ "${2:-}" = prefix ]; then
+    grep -Eq "^[[:space:]]*\[[[:space:]]*${re}([[:space:]]*\]|\.)" "$f"
+  else
+    grep -Eq "^[[:space:]]*\[[[:space:]]*${re}[[:space:]]*\]" "$f"
+  fi
+}
+
+_py_table_keys() {
+  [ -f "$P_DIR/pyproject.toml" ] || return 0
+  awk -v t="$1" '
+    /^[ \t]*\[/ {
+      h = $0; sub(/#.*/, "", h); gsub(/\[/, "", h); gsub(/\]/, "", h); gsub(/[ \t]/, "", h)
+      intable = (h == t); next
+    }
+    intable && /^[ \t]*("[^"]+"|[A-Za-z0-9_.-]+)[ \t]*=([^=]|$)/ {
+      k = $0; sub(/=.*/, "", k); gsub(/[ \t"]/, "", k); print k
+    }' "$P_DIR/pyproject.toml"
+}
+
+# Is a Python package declared as a dependency (any table of pyproject.toml,
+# or any requirements*.txt)?
+_py_declares() {
+  local n="$1" f
+  if [ -f "$P_DIR/pyproject.toml" ] &&
+    grep -Eiq "[\"']${n}([^A-Za-z0-9_.-]|\$)" "$P_DIR/pyproject.toml"; then
+    return 0
+  fi
+  for f in "$P_DIR"/requirements*.txt; do
+    [ -f "$f" ] || continue
+    grep -Eiq "^[[:space:]]*${n}([^A-Za-z0-9_.-]|\$)" "$f" && return 0
+  done
+  return 1
+}
+
+_py_extras() {
+  local k
+  _py_table_keys project.optional-dependencies | while IFS= read -r k; do
+    case "$k" in dev | test | tests) printf '%s\n' "$k" ;; esac
+  done
+}
+
+_py_groups() {
+  local k
+  _py_table_keys dependency-groups | while IFS= read -r k; do
+    case "$k" in test | tests) printf '%s\n' "$k" ;; esac
+  done
+}
+
+_py_req_files() {
+  local f out=""
+  if [ -f "$P_DIR/requirements.lock.txt" ]; then
+    out="requirements.lock.txt"
+  elif [ -f "$P_DIR/requirements.txt" ]; then
+    out="requirements.txt"
+  fi
+  for f in requirements-dev.txt requirements_dev.txt dev-requirements.txt \
+    requirements-test.txt requirements_test.txt test-requirements.txt; do
+    [ -f "$P_DIR/$f" ] && out="${out:+$out }$f"
+  done
+  printf '%s' "$out"
+}
+
+_py_test_files() { _files | grep -E '(^|/)(test_[^/]*|[^/]*_test)\.py$' | grep -Ev "$EXCL_RE"; }
+
+PYTEST_WHY=""
+_py_uses_pytest() {
+  local tf="$1" hit
+  if _py_declares pytest; then
+    PYTEST_WHY="pytest is declared as a dependency"
+    return 0
+  fi
+  if _py_table tool.pytest prefix; then
+    PYTEST_WHY="pyproject.toml configures [tool.pytest]"
+    return 0
+  fi
+  if [ -f "$P_DIR/pytest.ini" ]; then
+    PYTEST_WHY="pytest.ini exists"
+    return 0
+  fi
+  if grep -qs '^\[tool:pytest\]' "$P_DIR/setup.cfg" || grep -qs '^\[pytest\]' "$P_DIR/tox.ini"; then
+    PYTEST_WHY="setup.cfg/tox.ini configures pytest"
+    return 0
+  fi
+  if _files | grep -Ev "$EXCL_RE" | grep -Eq '(^|/)conftest\.py$'; then
+    PYTEST_WHY="a conftest.py is tracked"
+    return 0
+  fi
+  hit=$(cd "$P_DIR" && printf '%s\n' "$tf" | tr '\n' '\0' |
+    xargs -0 grep -El '^[[:space:]]*(import|from)[[:space:]]+pytest' 2>/dev/null | head -1)
+  if [ -n "$hit" ]; then
+    PYTEST_WHY="$hit imports pytest"
+    return 0
+  fi
+  return 1
+}
+
+PT_CMD=""
+PT_WHY=""
+# $1: how to invoke python (e.g. "uv run --locked python", ".venv/bin/python")
+_py_test_cmd() {
+  local py="$1" tf n dir=""
+  tf=$(_py_test_files)
+  if [ -z "$tf" ]; then
+    _note "no Python test files (test_*.py or *_test.py) are tracked"
+    return 1
+  fi
+  n=$(printf '%s\n' "$tf" | wc -l | tr -d ' ')
+  if _py_uses_pytest "$tf"; then
+    PT_CMD="$py -m pytest"
+    PT_WHY="$n test files; $PYTEST_WHY"
+    return 0
+  fi
+  if printf '%s\n' "$tf" | grep -q '^tests/'; then
+    dir=tests
+  elif printf '%s\n' "$tf" | grep -q '^test/'; then
+    dir="test"
+  fi
+  PT_CMD="$py -m unittest discover${dir:+ -s $dir}"
+  PT_WHY="$n test files and nothing declares or configures pytest, so the stdlib unittest runner${dir:+ discovers $dir/}"
+}
+
+PC_CMD=""
+PC_WHY=""
+# $1: prefix that runs a tool ("uv run --locked", "python3 -m"); $2: python.
+_py_check() {
+  local tp="$1" py="$2" parts="" why=""
+  if _py_declares ruff; then
+    parts="$tp ruff check"
+    why="ruff is declared (lint)"
+  fi
+  if _py_declares mypy; then
+    if _py_table_keys tool.mypy | grep -qx files ||
+      grep -Eqs '^[[:space:]]*files[[:space:]]*=' "$P_DIR/mypy.ini" "$P_DIR/.mypy.ini"; then
+      parts="${parts:+$parts && }$tp mypy"
+      why="${why:+$why; }mypy is declared and its config sets files (typecheck)"
+    else
+      _note "mypy is declared but no config sets 'files', so vt does not guess what to typecheck"
+    fi
+  fi
+  if _py_test_cmd "$py"; then
+    parts="${parts:+$parts && }$PT_CMD"
+    why="${why:+$why; }tests: $PT_WHY"
+  fi
+  [ -n "$parts" ] || return 1
+  PC_CMD="$parts"
+  PC_WHY="lint + typecheck + tests that are declared: $why"
+}
+
+PY=""
+PY_WHY=""
+_py_interp() {
+  if [ -n "${VIRTUAL_ENV:-}" ]; then
+    PY=python3
+    PY_WHY="python3 of the active virtualenv ($VIRTUAL_ENV)"
+  elif [ -x "$P_DIR/.venv/bin/python" ]; then
+    PY=.venv/bin/python
+    PY_WHY="the repo virtualenv .venv/bin/python"
+  else
+    PY=python3
+    PY_WHY="python3 on PATH (no .venv yet)"
+  fi
+}
+
+_tier_uv() {
+  local cmd="$1" ex="" exwhy="" k run src="pyproject.toml + uv.lock"
+  [ -f "$P_DIR/pyproject.toml" ] && [ -f "$P_DIR/uv.lock" ] || return 1
+  for k in $(_py_extras); do ex="$ex --extra $k"; done
+  for k in $(_py_groups); do ex="$ex --group $k"; done
+  [ -n "$ex" ] && exwhy="; with$ex because pyproject.toml declares it"
+  run="uv run --locked$ex"
+  case "$cmd" in
+    setup)
+      _set "$src" "uv sync --locked$ex" "uv.lock pins the dependencies; --locked fails instead of rewriting it$exwhy"
+      return 0
+      ;;
+    test)
+      _py_test_cmd "$run python" || return 1
+      _set "$src" "$PT_CMD" "$PT_WHY$exwhy"
+      return 0
+      ;;
+    check)
+      _py_check "$run" "$run python" || return 1
+      _set "$src" "$PC_CMD" "$PC_WHY$exwhy"
+      return 0
+      ;;
+    build)
+      if _py_table build-system; then
+        _set "$src" "uv build" "pyproject.toml declares [build-system]; uv build writes the sdist and wheel to dist/"
+        return 0
+      fi
+      _note "pyproject.toml has no [build-system]: nothing to build"
+      ;;
+  esac
+  return 1
+}
+
+_tier_pip() {
+  local cmd="$1" src="" reqs r args="" ex
+  [ -f "$P_DIR/uv.lock" ] && return 1
+  [ -f "$P_DIR/pyproject.toml" ] && src="pyproject.toml"
+  [ -f "$P_DIR/setup.py" ] && src="${src:+$src + }setup.py"
+  reqs=$(_py_req_files)
+  if [ -n "$reqs" ]; then
+    src="${src:+$src + }$(printf '%s' "$reqs" | sed 's/ / + /g')"
+  elif _has_requirements "$P_DIR"; then
+    src="${src:+$src + }requirements*.txt"
+  fi
+  [ -n "$src" ] || return 1
+  _py_interp
+  case "$cmd" in
+    setup)
+      for r in $reqs; do args="$args -r $r"; done
+      if _py_table project || _py_table build-system || [ -f "$P_DIR/setup.py" ]; then
+        ex=$(_py_extras | paste -s -d, -)
+        if [ -n "$ex" ]; then
+          args="$args -e \".[$ex]\""
+        else
+          args="$args -e ."
+        fi
+      fi
+      if [ -z "$args" ]; then
+        _note "$src: no installable project and no requirements file to install"
+        return 1
+      fi
+      if [ "$PY" = python3 ] && [ -z "${VIRTUAL_ENV:-}" ]; then
+        _set "$src" "python3 -m venv .venv && .venv/bin/python -m pip install$args" \
+          "installs what $src declares; creates .venv first so nothing lands in the system Python"
+      else
+        _set "$src" "$PY -m pip install$args" "installs what $src declares into $PY_WHY"
+      fi
+      return 0
+      ;;
+    test)
+      _py_test_cmd "$PY" || return 1
+      _set "$src" "$PT_CMD" "$PT_WHY; runs with $PY_WHY"
+      return 0
+      ;;
+    check)
+      _py_check "$PY -m" "$PY" || return 1
+      _set "$src" "$PC_CMD" "$PC_WHY; runs with $PY_WHY"
+      return 0
+      ;;
+    build)
+      if _py_declares build && { _py_table build-system || [ -f "$P_DIR/setup.py" ]; }; then
+        _set "$src" "$PY -m build" "the 'build' frontend is declared and the project has a build backend"
+        return 0
+      fi
+      _note "$src: no uv.lock and the 'build' frontend is not declared, so there is no declared build"
+      ;;
+  esac
+  return 1
+}
+
+# ----------------------------------------------------------------------------
+# Rust, Go, Make
+# ----------------------------------------------------------------------------
+
+_tier_cargo() {
+  local cmd="$1" l="" src="Cargo.toml" lw
+  [ -f "$P_DIR/Cargo.toml" ] || return 1
+  if [ -f "$P_DIR/Cargo.lock" ]; then
+    l=" --locked"
+    src="Cargo.toml + Cargo.lock"
+    lw="--locked because Cargo.lock exists (cargo fails instead of rewriting it)"
+  else
+    lw="no Cargo.lock, so no --locked (it would always fail)"
+  fi
+  case "$cmd" in
+    check) _set "$src" "cargo test$l" "Cargo.toml declares no separate lint step, so check is the test suite; $lw" ;;
+    test) _set "$src" "cargo test$l" "Cargo.toml: cargo test; $lw" ;;
+    build) _set "$src" "cargo build --release$l" "Cargo.toml: release build; $lw" ;;
+    setup) _set "$src" "cargo fetch$l" "downloads the crates Cargo.toml declares; $lw" ;;
+    *) return 1 ;;
+  esac
+}
+
+_tier_go() {
+  local cmd="$1"
+  [ -f "$P_DIR/go.mod" ] || return 1
+  case "$cmd" in
+    check) _set go.mod "go vet ./... && go test ./..." "go.mod: go vet then the tests of every package" ;;
+    test) _set go.mod "go test ./..." "go.mod: the tests of every package" ;;
+    build) _set go.mod "go build ./..." "go.mod: builds every package" ;;
+    setup) _set go.mod "go mod download" "downloads the modules go.mod and go.sum pin" ;;
+    *) return 1 ;;
+  esac
+}
+
+# The Makefile's real name. A glob returns names as stored, so a
+# case-insensitive filesystem does not report both makefile and Makefile.
+_makefile() {
+  local f
+  for f in "$P_DIR"/*akefile; do
+    case "${f##*/}" in
+      GNUmakefile | makefile | Makefile)
+        if [ -f "$f" ]; then
+          printf '%s' "${f##*/}"
+          return 0
+        fi
+        ;;
+    esac
+  done
+  return 1
+}
+
+_make_targets() {
+  awk '
+    /^\t/ { next }
+    /^[ \t]*#/ { next }
+    {
+      line = $0; i = index(line, ":"); if (i == 0) next
+      pre = substr(line, 1, i - 1); if (pre ~ /=/) next
+      rest = substr(line, i + 1); if (rest ~ /^:?=/) next
+      n = split(pre, t, " ")
+      for (j = 1; j <= n; j++) if (t[j] !~ /^\./ && t[j] !~ /[%$]/) print t[j]
+    }' "$1"
+}
+
+# Recipe lines of the given targets and, recursively, their prerequisites:
+# "target<TAB>recipe line". An empty target list means the default goal.
+_make_recipes() {
+  awk -v want="$2" '
+    function emit(t,   n, a, i, m, lines) {
+      if (t == "" || (t in seen)) return
+      seen[t] = 1
+      m = split(recipe[t], lines, "\n")
+      for (i = 1; i <= m; i++) if (lines[i] != "") print t "\t" lines[i]
+      n = split(prereq[t], a, " ")
+      for (i = 1; i <= n; i++) emit(a[i])
+    }
+    /^\t/ { for (k = 1; k <= ncur; k++) recipe[cur[k]] = recipe[cur[k]] "\n" substr($0, 2); next }
+    /^[ \t]*#/ { next }
+    /^[ \t]*$/ { next }
+    {
+      ncur = 0
+      line = $0; i = index(line, ":"); if (i == 0) next
+      pre = substr(line, 1, i - 1); if (pre ~ /=/) next
+      rest = substr(line, i + 1); if (rest ~ /^:?=/) next
+      sub(/^:/, "", rest)
+      inl = ""; j = index(rest, ";"); if (j) { inl = substr(rest, j + 1); rest = substr(rest, 1, j - 1) }
+      sub(/#.*/, "", rest)
+      n = split(pre, t, " ")
+      for (k = 1; k <= n; k++) {
+        cur[++ncur] = t[k]
+        prereq[t[k]] = prereq[t[k]] " " rest
+        if (inl != "") recipe[t[k]] = recipe[t[k]] "\n" inl
+        if (first == "" && t[k] !~ /^\./) first = t[k]
+      }
+    }
+    END {
+      if (want == "") want = first
+      nw = split(want, w, " ")
+      for (x = 1; x <= nw; x++) emit(w[x])
+    }' "$1"
+}
+
+_tier_make() {
+  local cmd="$1" mf
+  mf=$(_makefile) || return 1
+  case "$cmd" in
+    check | test | build)
+      if _make_targets "$P_DIR/$mf" | grep -qx "$cmd"; then
+        _set "$mf" "make $cmd" "$mf has a '$cmd' target"
+        return 0
+      fi
+      _note "$mf has no '$cmd' target"
+      ;;
+    setup)
+      if _make_targets "$P_DIR/$mf" | grep -qx setup; then
+        _note "$mf has a setup target, but vt setup only runs lockfile/manifest installs, so it is not used"
+      fi
+      ;;
+  esac
+  return 1
+}
+
+# ----------------------------------------------------------------------------
+# Repos without a project file at the root
+# ----------------------------------------------------------------------------
+
+_shell_files() {
+  local f b first
+  _files | grep -Ev "$EXCL_RE" | while IFS= read -r f; do
+    case "$f" in
+      *.sh | *.bash)
+        printf '%s\n' "$f"
+        continue
+        ;;
+    esac
+    b=${f##*/}
+    case "$b" in *.*) continue ;; esac
+    [ -f "$P_DIR/$f" ] || continue
+    first=""
+    IFS= read -r first <"$P_DIR/$f" 2>/dev/null || true
+    case "$first" in
+      '#!'*zsh*) ;;
+      '#!'*bash* | '#!'*/sh | '#!'*/sh' '* | '#!'*' sh' | '#!'*' sh '* | '#!'*dash* | '#!'*ksh*)
+        printf '%s\n' "$f"
+        ;;
+    esac
+  done
+}
+
+_tier_rootless() {
+  local cmd="$1" subs n list sh="" nsh=0 sc="" f
+  _has_root_manifest && return 1
+  if [ "$P_GIT" = 0 ]; then
+    n=0
+    for f in "$P_DIR"/*/.git; do
+      [ -e "$f" ] && n=$((n + 1))
+    done
+    if [ "$n" -gt 0 ]; then
+      R_STATUS=monorepo
+      R_SRC="workspace"
+      R_WHY="not a git repository, but $n git repos are directly below it${NL}run them all with: vt -C $P_DIR each $cmd"
+      return 0
+    fi
+  fi
+  subs=$(_subprojects)
+  if [ -n "$subs" ]; then
+    n=$(printf '%s\n' "$subs" | wc -l | tr -d ' ')
+    list=$(printf '%s\n' "$subs" | awk -F'\t' '{ printf "  %-34s %s\n", $1, $2 }')
+    R_STATUS=monorepo
+    R_SRC="nested projects"
+    R_WHY="no project file at the root, but $n nested projects (up to 3 levels deep):$NL$list${NL}run one with: vt -C <dir> $cmd"
+    return 0
+  fi
+  case "$cmd" in
+    check | test)
+      [ "$cmd" = check ] && sh=$(_shell_files)
+      if [ -n "$sh" ]; then
+        nsh=$(printf '%s\n' "$sh" | wc -l | tr -d ' ')
+        sc="shellcheck -S warning"
+        while IFS= read -r f; do
+          sc="$sc $(printf '%q' "$f")"
+        done <<EOF
+$sh
+EOF
+      fi
+      if [ -n "$(_py_test_files)" ]; then
+        _py_interp
+        if _py_test_cmd "$PY"; then
+          if [ -n "$sc" ]; then
+            _set "shell scripts + Python tests" "$sc && $PT_CMD" \
+              "no project file; lint = shellcheck (warnings and errors) on the $nsh git-tracked shell scripts, tests = $PT_WHY; runs with $PY_WHY"
+            R_SCAN="shellcheck && $PT_CMD"
+          else
+            _set "Python tests" "$PT_CMD" "no project file; $PT_WHY; runs with $PY_WHY"
+          fi
+          return 0
+        fi
+      fi
+      if [ -n "$sc" ]; then
+        _set "shell scripts" "$sc" "no project file; shellcheck (warnings and errors, not style) on the $nsh git-tracked shell scripts (*.sh, *.bash and sh/bash shebangs)"
+        R_SCAN="shellcheck"
+        return 0
+      fi
+      ;;
+  esac
+  return 1
+}
+
+# ----------------------------------------------------------------------------
+# Denylist
+# ----------------------------------------------------------------------------
+
+DENY_LABEL=()
+DENY_RE=()
+_deny() {
+  DENY_LABEL+=("$1")
+  DENY_RE+=("$2")
+}
+_DB='(^|[^[:alnum:]_])'
+_DE='([^[:alnum:]_]|$)'
+_DA='([[:space:]]+[^;&|[:space:]]+)*'
+_deny "rm -r (recursive delete)" '(^|[^[:alnum:]_./-])rm\)?([[:space:]]+-[^[:space:]]+)*[[:space:]]+-([a-z]*r[a-z]*|-recursive)([[:space:]]|$)'
+_deny "rimraf (recursive delete)" "${_DB}rimraf${_DE}"
+_deny "find -delete" '(^|[[:space:]])-delete([[:space:]]|$)'
+_deny "prune" "${_DB}prune${_DE}"
+_deny "down -v (deletes volumes)" "${_DB}down${_DA}[[:space:]]+(-v|--volumes)([[:space:]]|$)"
+_deny "docker rm/rmi" "${_DB}docker${_DA}[[:space:]]+(rm|rmi)([[:space:]]|$)"
+_deny "reset --hard" "${_DB}reset${_DA}[[:space:]]+--hard${_DE}"
+_deny "clean" "${_DB}clean${_DE}"
+_deny "push" "${_DB}push${_DE}"
+_deny "deploy" "${_DB}deploy${_DE}"
+_deny "publish" "${_DB}publish${_DE}"
+_deny "destroy" "${_DB}destroy${_DE}"
+_deny "drop database/table" "${_DB}(dropdb|drop[[:space:]]+(database|table|schema))${_DE}"
+_deny "sudo" "${_DB}sudo${_DE}"
+_deny "pipe into a shell" '[|][[:space:]]*(sudo[[:space:]]+)?(ba|z|da|k)?sh([[:space:]]|$)'
+_deny "mkfs/dd" "${_DB}(mkfs(\.[a-z0-9]+)?|dd[[:space:]]+[^;&|]*of=)"
+
+# Script names a command line runs through npm/pnpm/yarn/bun.
+_script_refs() {
+  local seg t nx i j
+  local -a w
+  while IFS= read -r seg; do
+    w=()
+    read -r -a w <<<"$seg"
+    i=0
+    while [ "$i" -lt ${#w[@]} ]; do
+      t=${w[$i]}
+      case "$t" in
+        npm | pnpm | yarn | bun)
+          j=$((i + 1))
+          while [ "$j" -lt ${#w[@]} ]; do
+            case "${w[$j]}" in -*) j=$((j + 1)) ;; *) break ;; esac
+          done
+          nx=${w[$j]:-install}
+          case "$nx" in
+            run | run-script | rum | urn)
+              j=$((j + 1))
+              while [ "$j" -lt ${#w[@]} ]; do
+                case "${w[$j]}" in -*) j=$((j + 1)) ;; *) break ;; esac
+              done
+              nx=${w[$j]:-}
+              nx=${nx//\"/}
+              nx=${nx//\'/}
+              [ -n "$nx" ] && printf '%s\n' "$nx"
+              ;;
+            test | t | tst) printf 'test\n' ;;
+            start) printf 'start\n' ;;
+            ci | install | i | add) printf 'install\nprepare\nprepublish\n' ;;
+            *)
+              if [ "$t" != npm ] && _pkg_script "$nx" >/dev/null; then
+                printf '%s\n' "$nx"
+              fi
+              ;;
+          esac
+          ;;
+      esac
+      i=$((i + 1))
+    done
+  done <<EOF
+$(_segments "$1")
+EOF
+}
+
+# Make targets a command line runs ("" for the default goal).
+_make_refs() {
+  local seg i out found
+  local -a w
+  found=0
+  out=""
+  while IFS= read -r seg; do
+    w=()
+    read -r -a w <<<"$seg"
+    [ ${#w[@]} -gt 0 ] || continue
+    # shellcheck disable=SC2016 # literal make variables in a recipe
+    case "${w[0]}" in
+      make | gmake | '$(MAKE)' | '${MAKE}')
+        found=1
+        i=1
+        while [ "$i" -lt ${#w[@]} ]; do
+          case "${w[$i]}" in
+            -* | *=*) ;;
+            *) out="$out ${w[$i]}" ;;
+          esac
+          i=$((i + 1))
+        done
+        ;;
+    esac
+  done <<EOF
+$(_segments "$1")
+EOF
+  [ "$found" = 1 ] || return 1
+  printf '%s' "$out"
+}
+
+SCAN_SEEN=" "
+# Print "origin<TAB>line" for a command and everything it expands to: the npm
+# scripts it runs (with their pre/post hooks) and the make recipes it runs.
+_scan_lines() {
+  local text="$1" origin="$2" depth="$3" line name s body mf targets t
+  while IFS= read -r line; do
+    printf '%s\t%s\n' "$origin" "$line"
+  done <<EOF
+$text
+EOF
+  [ "$depth" -lt 6 ] || return 0
+  if [ -f "$P_DIR/package.json" ] && _pkg_load; then
+    for name in $(_script_refs "$text"); do
+      case "$SCAN_SEEN" in *" $name "*) continue ;; esac
+      SCAN_SEEN="$SCAN_SEEN$name "
+      for s in "pre$name" "$name" "post$name"; do
+        body=$(_pkg_script "$s") || continue
+        _scan_lines "$body" "package.json scripts.$s" $((depth + 1))
+      done
+    done
+  fi
+  if mf=$(_makefile) && targets=$(_make_refs "$text"); then
+    _make_recipes "$P_DIR/$mf" "$targets" | while IFS="$TAB" read -r t line; do
+      printf '%s\t%s\n' "$mf target $t" "$line"
+    done
+  fi
+}
+
+_deny_check() {
+  local lines origin text low i re
+  [ "$R_STATUS" = run ] || return 0
+  SCAN_SEEN=" "
+  lines=$(_scan_lines "${R_SCAN:-$R_CMD}" "$R_SRC" 0)
+  while IFS="$TAB" read -r origin text; do
+    [ -n "$text" ] || continue
+    low=$(_lower "$text")
+    i=0
+    while [ "$i" -lt ${#DENY_RE[@]} ]; do
+      re=${DENY_RE[$i]}
+      if [[ $low =~ $re ]]; then
+        R_STATUS=refused
+        R_DENY="${DENY_LABEL[$i]}, in $origin: $text"
+        return 0
+      fi
+      i=$((i + 1))
+    done
+  done <<EOF
+$lines
+EOF
+}
+
+# ----------------------------------------------------------------------------
+# Resolve one command
+# ----------------------------------------------------------------------------
+
+resolve() {
+  local cmd="$1"
+  R_STATUS=none
+  R_CMD=""
+  R_SRC=""
+  R_WHY=""
+  R_SCAN=""
+  R_DENY=""
+  NOTES=""
+  if _tier_override "$cmd"; then
+    :
+  elif [ "$cmd" = doctor ]; then
+    R_STATUS=builtin
+    R_SRC="vt"
+    R_WHY="built-in read-only report (add doctor=... to .vt to run a repo-specific check after it)"
+    return 0
+  elif _tier_node "$cmd" || _tier_uv "$cmd" || _tier_pip "$cmd" || _tier_cargo "$cmd" ||
+    _tier_go "$cmd" || _tier_make "$cmd" || _tier_rootless "$cmd"; then
+    :
+  else
+    R_STATUS=none
+    if ! _has_root_manifest && [ -z "$(_files | head -1)" ]; then
+      R_WHY="no files found in $P_DIR"
+    elif ! _has_root_manifest; then
+      case "$cmd" in
+        check) R_WHY="no project file, no Python tests and no shell scripts to derive a check from" ;;
+        test) R_WHY="no project file and no Python test files, so no test suite is declared" ;;
+        build) R_WHY="no project file at the root declares a build" ;;
+        setup) R_WHY="no dependency manifest at the root: nothing to install" ;;
+      esac
+    else
+      R_WHY="no file in this repo declares a '$cmd' command"
+    fi
+  fi
+  _deny_check
+}
+
+_indent() {
+  local label="$1" text="$2" first=1 line
+  [ -n "$text" ] || return 0
+  while IFS= read -r line; do
+    if [ "$first" = 1 ]; then
+      printf '         %-8s %s\n' "$label" "$line"
+      first=0
+    else
+      printf '         %-8s %s\n' "" "$line"
+    fi
+  done <<EOF
+$text
+EOF
+}
+
+_reason() {
+  local notes
+  case "$R_STATUS" in
+    refused) printf '%s' "$R_DENY" ;;
+    monorepo)
+      if [ "$R_SRC" = workspace ]; then
+        printf '%s\n' "$R_WHY" | head -1
+        return 0
+      fi
+      printf '%s\n' "$R_WHY" | awk '
+        NR == 1 { head = $0; sub(/ \(up to.*$/, "", head); next }
+        /^  / { sub(/^ */, ""); sub(/ .*/, ""); l = l (l ? ", " : "") $0 }
+        END { print "monorepo, " head (l ? ": " l : "") }'
+      ;;
+    none)
+      if [ -n "$NOTES" ]; then
+        notes=$(printf '%s\n' "$NOTES" | awk 'NF { a = a (a ? "; " : "") $0 } END { print a }')
+        printf '%s' "$notes"
+      else
+        printf '%s' "$R_WHY"
+      fi
+      ;;
+    *) printf '%s\n' "$R_WHY" | head -1 ;;
+  esac
+}
+
+print_which() {
+  local cmd="$1"
+  resolve "$cmd"
+  case "$R_STATUS" in
+    run) printf '%-8s %s\n' "$cmd" "$R_CMD" ;;
+    builtin) printf '%-8s %s\n' "$cmd" "(built-in report)" ;;
+    none) printf '%-8s %s\n' "$cmd" "(nothing to run)" ;;
+    disabled) printf '%-8s %s\n' "$cmd" "(disabled by .vt)" ;;
+    monorepo)
+      if [ "$R_SRC" = workspace ]; then
+        printf '%-8s %s\n' "$cmd" "(workspace: use vt each)"
+      else
+        printf '%-8s %s\n' "$cmd" "(monorepo: run it inside a subproject)"
+      fi
+      ;;
+    refused) printf '%-8s REFUSED  %s\n' "$cmd" "$R_CMD" ;;
+  esac
+  if [ -n "$R_SRC" ] && [ "$R_STATUS" != monorepo ]; then
+    _indent "from" "$R_SRC"
+  fi
+  _indent "why" "$R_WHY"
+  _indent "denied" "$R_DENY"
+  _indent "skipped" "$NOTES"
+}
+
+# One tab-separated line per command; empty fields are "-" so that `read`
+# (tab is IFS whitespace, which collapses) keeps the columns aligned.
+print_porcelain() {
+  local cmd="$1" c r
+  resolve "$cmd"
+  c=$(_oneline "$R_CMD")
+  r=$(_oneline "$(_reason)")
+  printf '%s\t%s\t%s\t%s\t%s\n' "$cmd" "$R_STATUS" "${R_SRC:--}" "${c:--}" "${r:--}"
+}
+
+print_header() {
+  local found subs n
+  printf 'project  %s\n' "$P_DIR"
+  found=$(_found_files)
+  printf 'found    %s\n' "${found:-(no project files)}"
+  if _has_root_manifest; then
+    subs=$(_subprojects)
+    if [ -n "$subs" ]; then
+      n=$(printf '%s\n' "$subs" | wc -l | tr -d ' ')
+      printf 'nested   %s more project(s) inside, not included: %s\n' "$n" \
+        "$(printf '%s\n' "$subs" | cut -f1 | paste -s -d' ' -)"
+    fi
+  fi
+  _vt_load
+  _indent "warning" "$VT_WARN" | sed 's/^         /  /'
+  printf '\n'
+}
+
+# ----------------------------------------------------------------------------
+# Commands
+# ----------------------------------------------------------------------------
+
+DRY=0
+RUN_FLAG=0
+PORCELAIN=0
+
+cmd_which() {
+  local only="$1" c
+  if [ "$PORCELAIN" = 1 ]; then
+    for c in ${only:-$VT_NAMES}; do print_porcelain "$c"; done
+    return 0
+  fi
+  print_header
+  for c in ${only:-$VT_NAMES}; do print_which "$c"; done
+}
+
+cmd_run() {
+  local cmd="$1" rc
+  resolve "$cmd"
+  case "$R_STATUS" in
+    none | disabled)
+      printf 'vt %s: nothing to run in %s\n' "$cmd" "$P_DIR" >&2
+      { _indent "why" "$R_WHY"; _indent "skipped" "$NOTES"; } >&2
+      return 3
+      ;;
+    monorepo)
+      if [ "$R_SRC" = workspace ]; then
+        printf 'vt %s: %s is a workspace, not a repo\n' "$cmd" "$P_DIR" >&2
+      else
+        printf 'vt %s: %s is a monorepo\n' "$cmd" "$P_DIR" >&2
+      fi
+      _indent "" "$R_WHY" >&2
+      return 3
+      ;;
+    refused)
+      printf 'vt %s: REFUSED  %s\n' "$cmd" "$R_CMD" >&2
+      _indent "denied" "$R_DENY" >&2
+      return 4
+      ;;
+  esac
+  if [ "$DRY" = 1 ]; then
+    printf 'vt %s (dry-run) in %s\n' "$cmd" "$P_DIR"
+    printf '         %-8s %s\n' "would run" "$R_CMD"
+    _indent "from" "$R_SRC"
+    _indent "why" "$R_WHY"
+    return 0
+  fi
+  printf 'vt %s: %s   [%s]\n' "$cmd" "$R_CMD" "$R_SRC" >&2
+  (cd "$P_DIR" && "$VT_BASH" -c "$R_CMD")
+  rc=$?
+  if [ "$rc" -ne 0 ]; then
+    printf 'vt %s: failed (exit %d)\n' "$cmd" "$rc" >&2
+    return 1
+  fi
+  return 0
+}
+
+DOC_FAIL=0
+_doc() { printf '  %-5s %s\n' "$1" "$2"; }
+
+_tool_version() {
+  case "$1" in
+    go) go version 2>/dev/null | head -1 ;;
+    make | gmake) "$1" --version 2>/dev/null | head -1 ;;
+    shellcheck) shellcheck --version 2>/dev/null | sed -n 's/^version: /shellcheck /p' ;;
+    *) "$1" --version 2>/dev/null | head -1 ;;
+  esac
+}
+
+_cmd_programs() {
+  local seg i
+  local -a w
+  while IFS= read -r seg; do
+    w=()
+    read -r -a w <<<"$seg"
+    i=0
+    while [ "$i" -lt ${#w[@]} ]; do
+      case "${w[$i]}" in *=*) i=$((i + 1)) ;; *) break ;; esac
+    done
+    [ "$i" -lt ${#w[@]} ] && printf '%s\n' "${w[$i]}"
+  done <<EOF
+$(_segments "$1")
+EOF
+}
+
+cmd_doctor() {
+  local c progs="" p seen=" " found v eng rc=0
+  printf 'vt doctor  %s\n' "$P_DIR"
+  found=$(_found_files)
+  _doc "found" "${found:-(no project files)}"
+  _vt_load
+  if [ -n "$VT_WARN" ]; then
+    while IFS= read -r p; do _doc warn "$p"; done <<EOF
+$VT_WARN
+EOF
+  fi
+  for c in check test build setup; do
+    resolve "$c"
+    case "$R_STATUS" in
+      run)
+        _doc ok "$c: $R_CMD"
+        progs="$progs$NL$(_cmd_programs "$R_CMD")"
+        ;;
+      refused)
+        _doc warn "$c: REFUSED ($R_DENY)"
+        ;;
+      monorepo) _doc info "$c: monorepo, run vt inside a subproject" ;;
+      *) _doc info "$c: nothing to run" ;;
+    esac
+  done
+  if [ -f "$P_DIR/package.json" ]; then
+    progs="$progs${NL}jq"
+    case "$progs" in *npm* | *yarn*) progs="$progs${NL}node" ;; esac
+  fi
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    case "$seen" in *" $p "*) continue ;; esac
+    seen="$seen$p "
+    case "$p" in
+      */*)
+        if [ -x "$P_DIR/$p" ]; then
+          _doc ok "$p"
+        else
+          _doc warn "$p is missing (vt setup creates it)"
+        fi
+        ;;
+      *)
+        case "$(type -t "$p" 2>/dev/null)" in
+          builtin | keyword)
+            _doc ok "$p (shell builtin)"
+            continue
+            ;;
+        esac
+        if command -v "$p" >/dev/null 2>&1; then
+          v=$(_tool_version "$p")
+          case "$v" in
+            "$p"*) _doc ok "$v" ;;
+            *) _doc ok "$p ${v:-}" ;;
+          esac
+        else
+          _doc fail "$p is not on PATH"
+          DOC_FAIL=1
+        fi
+        ;;
+    esac
+  done <<EOF
+$progs
+EOF
+  if [ -f "$P_DIR/package.json" ] && _pkg_load; then
+    eng=$(jq -r '.engines.node // empty' "$P_DIR/package.json" 2>/dev/null)
+    [ -n "$eng" ] && _doc info "package.json engines.node: $eng"
+    if [ "${PKG_DEPS:-0}" != 0 ]; then
+      if [ -d "$P_DIR/node_modules" ]; then
+        _doc ok "node_modules/ present"
+      else
+        _doc warn "node_modules/ missing: run vt setup"
+      fi
+    fi
+  fi
+  if [ -f "$P_DIR/pyproject.toml" ]; then
+    eng=$(sed -n 's/^[[:space:]]*requires-python[[:space:]]*=[[:space:]]*//p' "$P_DIR/pyproject.toml" | head -1)
+    [ -n "$eng" ] && _doc info "pyproject.toml requires-python: $eng"
+  fi
+  if [ -f "$P_DIR/pyproject.toml" ] || _has_requirements "$P_DIR"; then
+    if [ -n "${VIRTUAL_ENV:-}" ]; then
+      _doc ok "virtualenv active: $VIRTUAL_ENV"
+    elif [ -d "$P_DIR/.venv" ]; then
+      _doc ok ".venv/ present"
+    else
+      _doc warn ".venv/ missing: run vt setup"
+    fi
+  fi
+  if [ -f "$P_DIR/go.mod" ]; then
+    eng=$(sed -n 's/^go[[:space:]]\{1,\}//p' "$P_DIR/go.mod" | head -1)
+    [ -n "$eng" ] && _doc info "go.mod go directive: $eng"
+  fi
+  resolve doctor
+  case "$R_STATUS" in
+    run)
+      printf '\n'
+      if [ "$DRY" = 1 ]; then
+        printf 'vt doctor (dry-run): would also run the .vt doctor: %s\n' "$R_CMD"
+      else
+        printf 'vt doctor: %s   [.vt]\n' "$R_CMD" >&2
+        (cd "$P_DIR" && "$VT_BASH" -c "$R_CMD") || rc=1
+      fi
+      ;;
+    refused)
+      _doc warn "doctor from .vt REFUSED ($R_DENY)"
+      rc=4
+      ;;
+  esac
+  [ "$DOC_FAIL" = 1 ] && return 1
+  return "$rc"
+}
+
+cmd_each() {
+  local sub="$1" only="$2" root="$3" d name repos="" colw=4 n=0 cmds c line st src cline reason first
+  local dry pass=0 fail=0 skip=0 refused=0 logdir="" t0 secs rc shown width result rows srcw=0
+  case "$sub" in
+    check | test | build | setup | doctor | which) ;;
+    "") die "each needs a command: vt each check|test|build|setup|doctor|which" ;;
+    *) die "each: unknown command '$sub'" ;;
+  esac
+  [ -d "$root" ] || die "not a directory: $root"
+  root=$(cd "$root" && pwd -P)
+  for d in "$root"/*; do
+    [ -d "$d" ] && [ -e "$d/.git" ] || continue
+    repos="$repos$d$NL"
+    name=${d##*/}
+    [ ${#name} -gt "$colw" ] && colw=${#name}
+    n=$((n + 1))
+  done
+  if [ "$n" = 0 ]; then
+    printf 'vt each: no git repositories directly under %s (use -C <root> or set VT_WORKSPACE)\n' "$root" >&2
+    return 3
+  fi
+  width=0
+  if [ -t 1 ]; then
+    width=$(tput cols 2>/dev/null || printf 120)
+  fi
+
+  if [ "$sub" = which ]; then
+    cmds=${only:-check test build}
+    rows=""
+    srcw=6
+    while IFS= read -r d; do
+      [ -n "$d" ] || continue
+      name=${d##*/}
+      first=1
+      for c in $cmds; do
+        line=$("$VT_BASH" "$VT_SELF" -C "$d" which "$c" --porcelain 2>/dev/null)
+        IFS="$TAB" read -r c st src cline reason <<EOF
+$line
+EOF
+        if [ "$st" = run ] || [ "$st" = refused ]; then shown="$cline"; else shown="$reason"; fi
+        [ "$st" = refused ] && shown="$cline  <- $reason"
+        [ ${#src} -gt "$srcw" ] && srcw=${#src}
+        [ "$first" = 1 ] || name="-"
+        rows="$rows$name$TAB$c$TAB$st$TAB$src$TAB$shown$NL"
+        first=0
+      done
+    done <<EOF
+$repos
+EOF
+    printf 'vt each which  (%s, %d repos)\n\n' "$root" "$n"
+    _each_row REPO CMD STATUS SOURCE "COMMAND / REASON"
+    while IFS="$TAB" read -r name c st src shown; do
+      [ -n "$c" ] || continue
+      _each_row "$name" "$c" "$st" "$src" "$shown"
+    done <<EOF
+$rows
+EOF
+    return 0
+  fi
+
+  dry=$DRY
+  if [ "$sub" = setup ] && [ "$RUN_FLAG" = 0 ]; then
+    dry=1
+  fi
+  if [ "$dry" = 0 ]; then
+    logdir=$(mktemp -d "${TMPDIR:-/tmp}/vt-each.XXXXXX") || die "cannot create a log directory"
+  fi
+  printf 'vt each %s%s  (%s, %d repos)\n\n' "$sub" "$([ "$dry" = 1 ] && printf ' (dry-run)')" "$root" "$n"
+  printf "%-${colw}s  %-8s %5s  %s\n" REPO RESULT TIME "COMMAND / REASON"
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    name=${d##*/}
+    line=$("$VT_BASH" "$VT_SELF" -C "$d" which "$sub" --porcelain 2>/dev/null)
+    IFS="$TAB" read -r c st src cline reason <<EOF
+$line
+EOF
+    case "$st" in
+      run | builtin) ;;
+      refused)
+        refused=$((refused + 1))
+        _each_run_row "$name" refused "" "$reason"
+        continue
+        ;;
+      *)
+        skip=$((skip + 1))
+        _each_run_row "$name" skip "" "$reason"
+        continue
+        ;;
+    esac
+    [ "$st" = builtin ] && cline="(built-in report)"
+    if [ "$dry" = 1 ]; then
+      _each_run_row "$name" dry-run "" "$cline"
+      continue
+    fi
+    t0=$SECONDS
+    "$VT_BASH" "$VT_SELF" -C "$d" "$sub" </dev/null >"$logdir/$name.log" 2>&1
+    rc=$?
+    secs=$((SECONDS - t0))
+    case "$rc" in
+      0)
+        result=pass
+        pass=$((pass + 1))
+        ;;
+      3)
+        result=skip
+        skip=$((skip + 1))
+        ;;
+      4)
+        result=refused
+        refused=$((refused + 1))
+        ;;
+      *)
+        result=fail
+        fail=$((fail + 1))
+        ;;
+    esac
+    _each_run_row "$name" "$result" "${secs}s" "$cline"
+  done <<EOF
+$repos
+EOF
+  printf '\n'
+  if [ "$dry" = 1 ]; then
+    [ "$sub" = setup ] && [ "$DRY" = 0 ] && printf 'each setup is a dry run by default; add --run to install.\n'
+    return 0
+  fi
+  printf '%d pass, %d fail, %d skip, %d refused   logs: %s\n' "$pass" "$fail" "$skip" "$refused" "$logdir"
+  [ "$fail" = 0 ] && [ "$refused" = 0 ]
+}
+
+_fit() {
+  local text="$1" room="$2"
+  if [ "$width" -gt 0 ] && [ "$room" -gt 10 ] && [ ${#text} -gt "$room" ]; then
+    printf '%s...' "${text:0:$((room - 3))}"
+  else
+    printf '%s' "$text"
+  fi
+}
+
+_each_row() {
+  local room=$((width - colw - srcw - 22)) name="$1" src="$4"
+  [ "$name" = - ] && name=""
+  [ "$src" = - ] && src=""
+  printf "%-${colw}s  %-6s %-9s %-${srcw}s  %s\n" "$name" "$2" "$3" "$src" "$(_fit "$5" "$room")"
+}
+
+_each_run_row() {
+  local room=$((width - colw - 19))
+  printf "%-${colw}s  %-8s %5s  %s\n" "$1" "$2" "$3" "$(_fit "$4" "$room")"
+}
+
+main() {
+  local opt_c="" action="" arg1="" arg2="" rc
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -C)
+        [ $# -ge 2 ] || die "-C needs a directory"
+        opt_c="$2"
+        shift 2
+        continue
+        ;;
+      -C?*) opt_c="${1#-C}" ;;
+      -n | --dry-run) DRY=1 ;;
+      --run) RUN_FLAG=1 ;;
+      --porcelain) PORCELAIN=1 ;;
+      -h | --help)
+        usage
+        return 0
+        ;;
+      -V | --version)
+        printf 'vt %s\n' "$VT_VERSION"
+        return 0
+        ;;
+      -*) die "unknown option: $1 (see vt --help)" ;;
+      *)
+        if [ -z "$action" ]; then
+          action="$1"
+        elif [ -z "$arg1" ]; then
+          arg1="$1"
+        elif [ -z "$arg2" ]; then
+          arg2="$1"
+        else
+          die "unexpected argument: $1"
+        fi
+        ;;
+    esac
+    shift
+  done
+  case "$action" in
+    "")
+      usage >&2
+      return 2
+      ;;
+    help)
+      usage
+      return 0
+      ;;
+    clean) die "there is no clean command: vt never deletes anything" ;;
+    each)
+      case "$arg2" in "" | check | test | build | setup | doctor) ;; *) die "unknown command: $arg2" ;; esac
+      [ -z "$arg2" ] || [ "$arg1" = which ] || die "only 'each which' takes a second command"
+      cmd_each "$arg1" "$arg2" "${opt_c:-${VT_WORKSPACE:-$PWD}}"
+      return
+      ;;
+    which)
+      [ -z "$arg2" ] || die "unexpected argument: $arg2"
+      case "$arg1" in "" | check | test | build | setup | doctor) ;; *) die "unknown command: $arg1" ;; esac
+      find_project "${opt_c:-$PWD}"
+      cmd_which "$arg1"
+      return
+      ;;
+    check | test | build | setup | doctor)
+      [ -z "$arg1" ] || die "unexpected argument: $arg1"
+      find_project "${opt_c:-$PWD}"
+      if [ "$action" = doctor ]; then
+        cmd_doctor
+      else
+        cmd_run "$action"
+      fi
+      rc=$?
+      return "$rc"
+      ;;
+    *) die "unknown command: $action (see vt --help)" ;;
+  esac
+}
+
+main "$@"

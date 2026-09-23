@@ -1,0 +1,3 @@
+# vt overrides for this repo: one name=command per line (see README, "vt").
+# check is derived: shellcheck on every git-tracked shell script.
+test=bash tests/vt-test.sh
