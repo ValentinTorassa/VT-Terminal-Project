@@ -1,0 +1,19 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: shellcheck --version
+      - run: >-
+          shellcheck
+          install.sh install-linux.sh install-macos.sh
+          scripts/symlink.sh scripts/uninstall.sh
+          scripts/claude-resume scripts/vt-term
