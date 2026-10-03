@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # VT IDE Project - Installer
-# One-command setup for Zed + AI workflows
+# One-command setup for Zed + AI workflows. Lives in VT-Terminal-Project/ide:
+# the top-level install.sh runs it, or run it alone for just the Zed part.
 set -euo pipefail
 
 YELLOW='\033[1;33m'
@@ -131,8 +132,10 @@ if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
   fi
 
   if [[ -n "$SHELL_RC" ]]; then
-    # Check if already added
-    if ! grep -q 'VT IDE Project' "$SHELL_RC" 2>/dev/null; then
+    # Skip when the rc already handles ~/.local/bin: VT Terminal's zsh/.zshrc
+    # does, and ~/.zshrc is a symlink into this repo, so appending would edit
+    # a tracked file.
+    if ! grep -qE 'VT IDE Project|\.local/bin' "$SHELL_RC" 2>/dev/null; then
       echo '' >> "$SHELL_RC"
       echo '# VT IDE Project - workflow scripts' >> "$SHELL_RC"
       echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$SHELL_RC"
@@ -175,4 +178,4 @@ echo -e "  ${CYAN}vt-conflict${RESET}   Resolve merge conflicts"
 echo -e "  ${CYAN}vt-ide${RESET}        Print the VT IDE banner"
 echo -e "  ${DIM}(commit messages → Zed git panel · PR triage → GitHub MCP in agent panel)${RESET}"
 echo ""
-echo -e "${DIM}Cheatsheet: cat $(basename "$SCRIPT_DIR")/cheatsheet/zed-shortcuts.md${RESET}"
+echo -e "${DIM}Cheatsheet: cat $SCRIPT_DIR/cheatsheet/zed-shortcuts.md${RESET}"

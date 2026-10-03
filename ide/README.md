@@ -12,7 +12,7 @@
 
 AI-native [Zed](https://zed.dev) setup. Inline AI suggestions as you type, MCP tools wired into the agent panel, every dock pinned to the right, and a theme that doesn't hurt your eyes.
 
-Companion to [VT-Terminal-Project](https://github.com/ValentinTorassa/VT-Terminal-Project).
+Part of [VT-Terminal-Project](https://github.com/ValentinTorassa/VT-Terminal-Project), under `ide/`. It used to be the separate VT-IDE-Project repo; its history is merged here.
 
 ---
 
@@ -58,16 +58,25 @@ Full shortcut + script reference: [`cheatsheet/zed-shortcuts.md`](./cheatsheet/z
 ## Install
 
 ```bash
-git clone https://github.com/ValentinTorassa/VT-IDE-Project.git ~/.ide-config
-cd ~/.ide-config && ./install.sh
+git clone https://github.com/ValentinTorassa/VT-Terminal-Project.git ~/.dotfiles
+cd ~/.dotfiles && ./install.sh   # terminal + IDE
+./ide/install.sh                 # or only the Zed part
 ```
+
+`ide/install.sh` symlinks `~/.config/zed/settings.json` and `keymap.json` to `ide/zed/` (a real file already there is backed up as `<name>.backup.<timestamp>`) and the `vt-*` scripts into `~/.local/bin`.
 
 ## Requirements
 macOS or Linux · Zed v0.200+ · [Claude Code CLI](https://claude.ai/claude-code) · `gh` · `jq` · `delta` · [`uv`](https://docs.astral.sh/uv/) (for Serena)
 
 ## MCP auth
-- **GitHub**: `export GITHUB_PERSONAL_ACCESS_TOKEN=...` (scopes: `repo`, `read:org`), launch Zed from that shell
+- **GitHub**: `export GITHUB_PERSONAL_ACCESS_TOKEN=...` (scopes: `repo`, `read:org`) in `~/.zshrc.local`, launch Zed from that shell
 - **Context7 / Serena**: no auth
+
+## Secrets and local-only settings
+`ide/zed/settings.json` is public and is the file Zed runs, so keys and private hosts stay out of it:
+- Tokens go in `~/.zshrc.local` (sourced by VT Terminal's `.zshrc`, never committed). Zed sees them only when started from that shell (`zed .`).
+- Provider API keys entered in Zed's agent settings are kept in the OS keychain, not in `settings.json`.
+- For a temporary local tweak (bigger fonts for a recording), replace the symlink with a real file, then relink: `ln -sf ~/.dotfiles/ide/zed/settings.json ~/.config/zed/settings.json`.
 
 ## License
 GPL-3.0 - see [LICENSE](./LICENSE).

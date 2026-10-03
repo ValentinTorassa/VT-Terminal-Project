@@ -18,6 +18,21 @@ jobs:
           scripts/symlink.sh scripts/uninstall.sh
           scripts/claude-resume scripts/vt-term scripts/vt
           tests/vt-test.sh
+      # ide/ came from VT-IDE-Project, which gated on warnings and above.
+      - name: shellcheck ide/ (warning and above)
+        run: shellcheck -S warning ide/install.sh ide/scripts/vt-*
+  # ide/zed/*.json are JSONC (comments, trailing commas): parsed the way Zed
+  # reads them, failing on syntax errors and on duplicate keys.
+  zed-config:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: JSONC parses, no duplicate keys
+        run: python3 .github/scripts/check_jsonc.py --self-test
   vt-tests:
     # macOS runs /bin/bash 3.2, the version vt has to keep working on.
     strategy:

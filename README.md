@@ -12,7 +12,7 @@
 
 Personal dotfiles and terminal setup for macOS and Linux. One script to bootstrap a new machine with a fully configured terminal environment.
 
-Companion to [VT-IDE-Project](https://github.com/ValentinTorassa/VT-IDE-Project).
+The Zed setup that used to be [VT-IDE-Project](https://github.com/ValentinTorassa/VT-IDE-Project) lives in [`ide/`](./ide), with its history.
 
 ## What's included
 
@@ -22,6 +22,7 @@ Companion to [VT-IDE-Project](https://github.com/ValentinTorassa/VT-IDE-Project)
 - **TUI tools**: lazygit, lazydocker
 - **AI shell assistant**: command suggestions, output explanation, commit message generation
 - **Fuzzy cheatsheets**: searchable keyboard shortcut reference
+- **Zed editor setup** ([`ide/`](./ide)): settings + keymap, MCP servers, and the Claude-backed `vt-diff`, `vt-review`, `vt-conflict` scripts
 
 ## Quick start
 
@@ -30,6 +31,8 @@ git clone https://github.com/ValentinTorassa/vt-terminal-project.git ~/.dotfiles
 cd ~/.dotfiles
 ./install.sh
 ```
+
+`install.sh` also runs `ide/install.sh`, which links `~/.config/zed/settings.json` and `keymap.json` to `ide/zed/` and the `vt-*` IDE scripts into `~/.local/bin`. Run `ide/install.sh` alone to redo just the Zed part. Details: [`ide/README.md`](./ide/README.md).
 
 ## Keybindings
 
@@ -60,6 +63,8 @@ cd ~/.dotfiles
 | `ll` | list files with icons and git status |
 | `git diff` | see changes (side-by-side with delta) |
 | `vt-term` | print the VT Terminal banner |
+| `vt-diff` / `vt-review` | AI explanation / code review of the current diff (`--staged`, `--branch main`) |
+| `vt-conflict` | AI merge-conflict resolver |
 | `cr` | choose and resume any personal/team Claude conversation |
 | `cl` | resume the newest Claude conversation across both accounts |
 | `vt check` / `vt which` | run or explain a repo's check/test/build (see [vt](#vt-one-command-vocabulary)) |
