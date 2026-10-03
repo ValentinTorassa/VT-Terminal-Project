@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# vt-review - AI code review on staged changes or branch diff
+# Usage: vt-review [--branch main] [--staged]
+set -euo pipefail
+
+YELLOW='\033[1;33m'
+CYAN='\033[1;36m'
+DIM='\033[2m'
+RESET='\033[0m'
+
+show_help() {
+  echo -e "${CYAN}vt-review${RESET} - AI code review"
+  echo ""
+  echo "Usage:"
+  echo "  vt-review              # Review unstaged changes"
+  echo "  vt-review --staged     # Review staged changes"
+  echo "  vt-review --branch main # Review all changes vs a branch"
+  echo "  vt-review --help       # Show this help"
+}
+
+DIFF_ARGS=""
+LABEL="unstaged changes"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help|-h) show_help; exit 0 ;;
+    --staged) DIFF_ARGS="--staged"; LABEL="staged changes"; shift ;;
+    --branch) DIFF_ARGS="$2...HEAD"; LABEL="changes vs $2"; shift 2 ;;
+    *) echo -e "${YELLOW}Unknown option: $1${RESET}"; show_help; exit 1 ;;
+  esac
+done
+
+for cmd in git claude; do
+  if ! command -v "$cmd" &>/dev/null; then
+    echo -e "${YELLOW}Missing dependency:${RESET} $cmd"
+    exit 1
+  fi
+done
+
+if ! git rev-parse --is-inside-work-tree &>/dev/null; then
+  echo -e "${YELLOW}Not in a git repository${RESET}"
+  exit 1
+fi
+
+DIFF=$(git diff $DIFF_ARGS)
+
+if [[ -z "$DIFF" ]]; then
+  echo -e "${DIM}No ${LABEL} found${RESET}"
+  exit 0
+fi
+
+STATS=$(git diff --stat $DIFF_ARGS)
+FILE_COUNT=$(git diff --name-only $DIFF_ARGS | wc -l | tr -d ' ')
+
+echo -e "${CYAN}Reviewing ${LABEL} (${FILE_COUNT} files)${RESET}"
+echo -e "${DIM}${STATS}${RESET}"
+echo ""
+echo -e "${CYAN}Running AI review...${RESET}"
+echo ""
+
+PROMPT="You are a senior code reviewer. Review this diff thoroughly.
+
+For each issue found, report:
+- **Severity**: CRITICAL / WARNING / SUGGESTION
+- **File:Line**: location
+- **Issue**: what's wrong
+- **Fix**: how to fix it
+
+Check for:
+1. Correctness - logic bugs, edge cases, off-by-one errors
+2. Security - injection, XSS, auth bypass, secrets in code
+3. Performance - unnecessary work, missing indexes, N+1 queries
+4. Error handling - uncaught exceptions, silent failures
+5. Code quality - naming, complexity, duplication
+
+End with a verdict: APPROVE / REQUEST CHANGES / NEEDS DISCUSSION
+
+Diff:
+$(echo "$DIFF" | head -600)"
+
+echo "$PROMPT" | claude --print 2>/dev/null || echo "$PROMPT" | claude -p 2>/dev/null

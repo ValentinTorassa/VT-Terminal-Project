@@ -1,0 +1,46 @@
+// VT IDE Project - Zed Keybindings
+// Git workflow and AI shortcuts
+// Note: uses `ctrl` for Linux. On macOS, Zed auto-translates `ctrl` → `cmd`
+// for many defaults, but if you're on macOS and want native feel, swap ctrl → cmd.
+[
+  {
+    "context": "Workspace",
+    "bindings": {
+      // ── AI Assistant ──────────────────────────────────────
+      "ctrl-shift-a": "assistant::ToggleFocus",
+      "ctrl-shift-enter": "assistant::InlineAssist",
+
+      // ── Git workflows ────────────────────────────────────
+      "ctrl-shift-g": "workspace::ToggleBottomDock",
+
+      // ── Terminal ──────────────────────────────────────────
+      "ctrl-`": "terminal_panel::ToggleFocus",
+
+      // ── Navigation ────────────────────────────────────────
+      "ctrl-shift-o": "file_finder::Toggle",
+      "ctrl-shift-f": "workspace::NewSearch"
+    }
+  },
+  {
+    "context": "Editor",
+    "bindings": {
+      // ── AI inline assist on selection ─────────────────────
+      "ctrl-enter": "assistant::InlineAssist",
+
+      // ── Quick actions ─────────────────────────────────────
+      "ctrl-shift-d": "editor::DuplicateLineDown",
+      "alt-shift-k": "editor::DeleteLine",
+      "alt-up": "editor::MoveLineUp",
+      "alt-down": "editor::MoveLineDown",
+
+      // ── Multi-cursor ──────────────────────────────────────
+      "ctrl-d": "editor::SelectNext"
+    }
+  },
+  {
+    "context": "Terminal",
+    "bindings": {
+      "ctrl-`": "terminal_panel::ToggleFocus"
+    }
+  }
+]

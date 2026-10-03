@@ -1,0 +1,121 @@
+// VT IDE Project - Zed Settings
+// Optimized for AI-powered development workflows
+{
+  // ── Docks: principal panels on the right, project panel on the left ─
+  "tabs": { "close_position": "left" },
+  "project_panel": { "dock": "left" },
+  "outline_panel": { "dock": "right" },
+  "collaboration_panel": { "dock": "right" },
+  "git_panel": { "dock": "right" },
+  "chat_panel": { "dock": "right" },
+  "notification_panel": { "dock": "right" },
+  "debugger": { "dock": "right" },
+  "agent": {
+    "default_model": {
+      "model": "claude-opus-4-7",
+      "enable_thinking": true,
+      "effort": "high"
+    },
+    "favorite_models": [],
+    "model_parameters": []
+  },
+
+  // ── Appearance ──────────────────────────────────────────────
+  "ui_font_size": 16,
+  "buffer_font_size": 15,
+  "buffer_font_family": "JetBrains Mono",
+  "theme": "Catppuccin Frappé",
+  "icon_theme": {
+    "mode": "system",
+    "light": "Catppuccin Latte",
+    "dark": "Catppuccin Mocha"
+  },
+
+  // ── Extensions (auto-installed) ────────────────────────────
+  "auto_install_extensions": {
+    "catppuccin": true,
+    "catppuccin-icons": true,
+    "discord-presence": true,
+    "toml": true,
+    "dockerfile": true,
+    "dotenv": true,
+    "basher": true,
+    "github-actions": true
+  },
+
+  // ── AI inline suggestions ──────────────────────────────────
+  // Powered by Zeta - Zed's built-in edit-prediction model.
+  // No sign-in, multi-line + deletion suggestions, runs out of the box.
+  // Mode: "eager" shows predictions inline as you type, "subtle" only on alt.
+  "features": {
+    "edit_prediction_provider": "zed"
+  },
+  "show_inline_completions": true,
+  "edit_predictions": {
+    "mode": "eager"
+  },
+
+  // ── MCP servers (Model Context Protocol) ────────────────────
+  // GitHub: needs GITHUB_PERSONAL_ACCESS_TOKEN in your shell env
+  // Context7: no auth required
+  // Serena: requires `uv` (https://docs.astral.sh/uv/) - install with `curl -LsSf https://astral.sh/uv/install.sh | sh`
+  "context_servers": {
+    "github": {
+      "source": "custom",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"]
+    },
+    "context7": {
+      "source": "custom",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
+    "serena": {
+      "enabled": true,
+      "remote": false,
+      "settings": {}
+    }
+  },
+
+  // ── Editor ──────────────────────────────────────────────────
+  "tab_size": 2,
+  "format_on_save": "on",
+  "soft_wrap": "preferred_line_length",
+  "preferred_line_length": 100,
+  "scroll_beyond_last_line": "one_page",
+  "relative_line_numbers": true,
+  "cursor_blink": false,
+  "scrollbar": {
+    "show": "auto"
+  },
+
+  // ── Terminal inside Zed ─────────────────────────────────────
+  "terminal": {
+    "font_size": 14,
+    "shell": {
+      "program": "zsh"
+    },
+    "working_directory": "current_project_directory",
+    "blinking": "off"
+  },
+
+  // ── Git integration ─────────────────────────────────────────
+  "git": {
+    "inline_blame": {
+      "enabled": true,
+      "delay_ms": 500
+    },
+    "git_gutter": "tracked_files"
+  },
+
+  // ── Files to exclude from project ──────────────────────────
+  "file_scan_exclusions": [
+    "**/.git",
+    "**/.DS_Store",
+    "**/node_modules",
+    "**/target",
+    "**/dist",
+    "**/.next",
+    "**/__pycache__"
+  ]
+}

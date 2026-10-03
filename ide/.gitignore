@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+._*
+
+# Editor
+*.swp
+*.swo
+*~
+
+# Zed local state (not config)
+zed/db/
+zed/hang_traces/
+zed/node/
+zed/prettier/
+zed/threads/
+
+# Environment
+.env
+.env.local
