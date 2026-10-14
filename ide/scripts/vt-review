@@ -25,7 +25,13 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --help|-h) show_help; exit 0 ;;
     --staged) DIFF_ARGS="--staged"; LABEL="staged changes"; shift ;;
-    --branch) DIFF_ARGS="$2...HEAD"; LABEL="changes vs $2"; shift 2 ;;
+    --branch)
+      if [[ $# -lt 2 || "$2" == -* ]]; then
+        echo -e "${YELLOW}--branch needs a branch name, e.g. --branch main${RESET}"
+        show_help
+        exit 1
+      fi
+      DIFF_ARGS="$2...HEAD"; LABEL="changes vs $2"; shift 2 ;;
     *) echo -e "${YELLOW}Unknown option: $1${RESET}"; show_help; exit 1 ;;
   esac
 done
@@ -76,6 +82,6 @@ Check for:
 End with a verdict: APPROVE / REQUEST CHANGES / NEEDS DISCUSSION
 
 Diff:
-$(echo "$DIFF" | head -600)"
+$(sed -n '1,600p' <<<"$DIFF")"
 
 echo "$PROMPT" | claude --print 2>/dev/null || echo "$PROMPT" | claude -p 2>/dev/null

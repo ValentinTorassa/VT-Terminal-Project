@@ -26,7 +26,13 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --help|-h) show_help; exit 0 ;;
     --staged) DIFF_ARGS="--staged"; LABEL="staged changes"; shift ;;
-    --branch) DIFF_ARGS="$2...HEAD"; LABEL="changes vs $2"; shift 2 ;;
+    --branch)
+      if [[ $# -lt 2 || "$2" == -* ]]; then
+        echo -e "${YELLOW}--branch needs a branch name, e.g. --branch main${RESET}"
+        show_help
+        exit 1
+      fi
+      DIFF_ARGS="$2...HEAD"; LABEL="changes vs $2"; shift 2 ;;
     *) DIFF_ARGS="$DIFF_ARGS -- $1"; shift ;;
   esac
 done
@@ -59,7 +65,9 @@ echo ""
 
 # Pretty diff with delta if available
 if command -v delta &>/dev/null; then
-  echo "$DIFF" | delta --side-by-side --width="$(tput cols)" 2>/dev/null | head -80
+  # sed reads delta's output to the end: `| head -80` closed the pipe early,
+  # and under pipefail the SIGPIPE that killed delta ended the script.
+  delta --side-by-side --width="$(tput cols)" <<<"$DIFF" 2>/dev/null | sed -n '1,80p'
   echo ""
   echo -e "${DIM}(showing first 80 lines of formatted diff)${RESET}"
   echo ""
@@ -76,6 +84,6 @@ PROMPT="Explain this git diff concisely:
 4. **Risk** - Low/Medium/High
 
 Diff:
-$(echo "$DIFF" | head -400)"
+$(sed -n '1,400p' <<<"$DIFF")"
 
 echo "$PROMPT" | claude --print 2>/dev/null || echo "$PROMPT" | claude -p 2>/dev/null

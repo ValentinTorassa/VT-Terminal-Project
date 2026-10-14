@@ -544,5 +544,57 @@ case "$RC" in
 esac
 expect_out "check: npm run verify" "doctor lists the resolved commands"
 
+# --------------------------------------------------------------------------
+# ide/scripts: vt-review and vt-diff on a diff bigger than a pipe buffer
+# --------------------------------------------------------------------------
+
+# Stubs: claude keeps the prompt it was given, delta passes the diff through.
+STUBS="$TMP/ide-stubs"
+mkdir -p "$STUBS"
+printf '#!/bin/sh\ncat >"%s/prompt.txt"\necho stub-claude-answer\n' "$STUBS" >"$STUBS/claude"
+printf '#!/bin/sh\nexec cat\n' >"$STUBS/delta"
+chmod +x "$STUBS/claude" "$STUBS/delta"
+
+# An unstaged diff of ~50000 lines: `echo "$DIFF" | head -N` used to die here.
+D=$(repo ide-big-diff)
+: >"$D/big.txt"
+track "$D"
+awk 'BEGIN { for (i = 1; i <= 50000; i++) print "row " i }' >"$D/big.txt"
+
+# ide <script> <args...>: runs an ide/ script inside the big-diff repo.
+ide() {
+  local script="$1"
+  shift
+  rm -f "$STUBS/prompt.txt"
+  OUT=$(cd "$D" && PATH="$STUBS:$PATH" "$SH" "$ROOT/ide/scripts/$script" "$@" 2>&1)
+  RC=$?
+}
+
+ide vt-review
+expect_rc 0 "vt-review survives a diff bigger than a pipe buffer"
+expect_out "stub-claude-answer" "vt-review reaches claude on a big diff"
+if grep -qsx '+row 595' "$STUBS/prompt.txt" && ! grep -qsx '+row 596' "$STUBS/prompt.txt"; then
+  ok "vt-review sends the first 600 diff lines"
+else
+  not_ok "vt-review should send exactly the first 600 diff lines" "$(tail -3 "$STUBS/prompt.txt" 2>&1)"
+fi
+
+ide vt-diff
+expect_rc 0 "vt-diff survives a big diff through delta"
+expect_out "showing first 80 lines" "vt-diff shows the delta preview"
+expect_out "stub-claude-answer" "vt-diff reaches claude on a big diff"
+if grep -qsx '+row 395' "$STUBS/prompt.txt" && ! grep -qsx '+row 396' "$STUBS/prompt.txt"; then
+  ok "vt-diff sends the first 400 diff lines"
+else
+  not_ok "vt-diff should send exactly the first 400 diff lines" "$(tail -3 "$STUBS/prompt.txt" 2>&1)"
+fi
+
+for script in vt-review vt-diff; do
+  ide "$script" --branch
+  expect_rc 1 "$script --branch without a name"
+  expect_out "--branch needs a branch name" "$script --branch says what is missing"
+  expect_no_out "unbound variable" "$script --branch does not crash on \$2"
+done
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" = 0 ]
