@@ -23,6 +23,27 @@ install_pkg() {
   esac
 }
 
+# Downloads go to a private directory from mktemp, not to fixed /tmp paths
+# that another local user could create first, and are removed on exit.
+DL_DIR=$(mktemp -d "${TMPDIR:-/tmp}/vt-install.XXXXXX") || exit 1
+trap 'rm -rf "$DL_DIR"' EXIT
+
+# fetch_verified <url> <sha256> <dest>: downloads <url> and keeps it only if
+# its SHA-256 matches. Without a checksum to compare against, it refuses.
+fetch_verified() {
+  local url="$1" sum="$2" dest="$3"
+  if [[ ! "$sum" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "  [!] No SHA-256 to verify ${dest##*/} against, not installing it"
+    return 1
+  fi
+  curl -fsSL -o "$dest" "$url" || return 1
+  if ! printf '%s  %s\n' "$sum" "$dest" | sha256sum -c --status; then
+    echo "  [!] SHA-256 mismatch for ${dest##*/}, not installing it"
+    rm -f "$dest"
+    return 1
+  fi
+}
+
 try_install() {
   local name="$1"
   shift
@@ -111,12 +132,17 @@ fi
 # dust (directory size)
 if ! command -v dust &>/dev/null; then
   echo "  -> dust (from GitHub release)"
-  DUST_VERSION=$(curl -s "https://api.github.com/repos/bootandy/dust/releases/latest" | jq -r '.tag_name' 2>/dev/null)
-  if [[ -n "$DUST_VERSION" && "$DUST_VERSION" != "null" ]]; then
-    curl -Lo /tmp/dust.deb "https://github.com/bootandy/dust/releases/download/${DUST_VERSION}/du-dust_${DUST_VERSION#v}-1_amd64.deb" 2>&1 &&
-    sudo dpkg -i /tmp/dust.deb 2>&1 &&
-    rm -f /tmp/dust.deb &&
-    echo "  -> dust installed" ||
+  # dust publishes no checksum file, so the .deb is checked against the
+  # SHA-256 GitHub records for the uploaded asset (the API's "digest").
+  DUST_URL="" DUST_SUM=""
+  read -r DUST_URL DUST_SUM < <(curl -fsSL "https://api.github.com/repos/bootandy/dust/releases/latest" 2>/dev/null |
+    jq -r '[.assets[] | select(.name | endswith("_amd64.deb"))][0] // empty
+      | "\(.browser_download_url) \((.digest // "") | ltrimstr("sha256:"))"' 2>/dev/null)
+  if [[ "$DUST_URL" == https://* ]] &&
+    fetch_verified "$DUST_URL" "$DUST_SUM" "$DL_DIR/dust.deb" &&
+    sudo dpkg -i "$DL_DIR/dust.deb" 2>&1; then
+    echo "  -> dust installed"
+  else
     echo "  [!] dust install failed"
   fi
 fi
@@ -126,14 +152,22 @@ fi
 # lazygit (not in most repos)
 if ! command -v lazygit &>/dev/null; then
   echo "  -> lazygit (from GitHub release)"
-  LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
-  if [[ -n "$LAZYGIT_VERSION" && "$LAZYGIT_VERSION" != "null" ]]; then
-    curl -Lo /tmp/lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz" &&
-    tar xf /tmp/lazygit.tar.gz -C /tmp lazygit &&
-    sudo install /tmp/lazygit /usr/local/bin/ &&
-    rm -f /tmp/lazygit /tmp/lazygit.tar.gz &&
-    echo "  -> lazygit installed" ||
-    echo "  [!] lazygit install failed"
+  LAZYGIT_TAG=$(curl -fsSL "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" 2>/dev/null | jq -r '.tag_name // empty' 2>/dev/null)
+  if [[ -n "$LAZYGIT_TAG" ]]; then
+    LAZYGIT_BASE="https://github.com/jesseduffield/lazygit/releases/download/${LAZYGIT_TAG}"
+    # The release's checksums.txt gives both the SHA-256 and the asset's
+    # exact name (it has been both _Linux_ and _linux_ over the years).
+    LAZYGIT_SUM="" LAZYGIT_TGZ=""
+    read -r LAZYGIT_SUM LAZYGIT_TGZ < <(curl -fsSL "$LAZYGIT_BASE/checksums.txt" 2>/dev/null |
+      awk '!found && tolower($2) ~ /_linux_x86_64\.tar\.gz$/ { print $1, $2; found = 1 }')
+    if [[ -n "$LAZYGIT_TGZ" ]] &&
+      fetch_verified "$LAZYGIT_BASE/$LAZYGIT_TGZ" "$LAZYGIT_SUM" "$DL_DIR/lazygit.tar.gz" &&
+      tar xzf "$DL_DIR/lazygit.tar.gz" -C "$DL_DIR" lazygit &&
+      sudo install "$DL_DIR/lazygit" /usr/local/bin/; then
+      echo "  -> lazygit installed"
+    else
+      echo "  [!] lazygit install failed"
+    fi
   fi
 fi
 
@@ -154,15 +188,17 @@ if ! command -v ghostty &>/dev/null; then
   echo "  -> ghostty"
   case "$PM" in
     apt)
-      GHOSTTY_DEB_URL=$(curl -s "https://api.github.com/repos/ghostty-org/ghostty/releases/latest" | jq -r '.assets[] | select(.name | endswith("_amd64.deb")) | .browser_download_url // empty' 2>/dev/null)
-      if [[ -n "$GHOSTTY_DEB_URL" ]]; then
-        if curl -Lo /tmp/ghostty.deb "$GHOSTTY_DEB_URL"; then
-          sudo dpkg -i /tmp/ghostty.deb || sudo apt install -f -y
-        fi
-        rm -f /tmp/ghostty.deb
+      # Ghostty publishes no .deb: ghostty-org/ghostty has no GitHub "latest"
+      # release, only tags and a macOS/source "tip" prerelease. Ubuntu 26.04+
+      # has it in apt; elsewhere the snap is the prebuilt option that
+      # https://ghostty.org/docs/install/binary lists.
+      if apt-cache show ghostty &>/dev/null; then
+        install_pkg ghostty || echo "  [!] ghostty install failed"
+      elif command -v snap &>/dev/null; then
+        sudo snap install ghostty --classic || echo "  [!] ghostty snap install failed"
       else
-        echo "  [!] Ghostty .deb not found in latest release"
-        echo "  [!] Install manually: https://ghostty.org/docs/install"
+        echo "  [!] Ghostty is not in your apt sources and snap is not installed"
+        echo "  [!] Install manually: https://ghostty.org/docs/install/binary"
       fi
       ;;
     dnf)
@@ -178,10 +214,11 @@ fi
 if ! fc-list 2>/dev/null | grep -qi "JetBrainsMono Nerd"; then
   echo "  -> JetBrainsMono Nerd Font"
   mkdir -p "$HOME/.local/share/fonts"
-  if curl -Lo /tmp/JetBrainsMono.zip "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip"; then
-    unzip -o /tmp/JetBrainsMono.zip -d "$HOME/.local/share/fonts/JetBrainsMono" > /dev/null
+  FONT_BASE="https://github.com/ryanoasis/nerd-fonts/releases/latest/download"
+  FONT_SUM=$(curl -fsSL "$FONT_BASE/SHA-256.txt" 2>/dev/null | awk '$2 == "JetBrainsMono.zip" { print $1 }')
+  if fetch_verified "$FONT_BASE/JetBrainsMono.zip" "$FONT_SUM" "$DL_DIR/JetBrainsMono.zip"; then
+    unzip -o "$DL_DIR/JetBrainsMono.zip" -d "$HOME/.local/share/fonts/JetBrainsMono" > /dev/null
     fc-cache -f
-    rm -f /tmp/JetBrainsMono.zip
     echo "  -> Font installed"
   else
     echo "  [!] Font download failed"
