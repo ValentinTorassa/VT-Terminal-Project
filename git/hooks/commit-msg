@@ -1,0 +1,22 @@
+#!/bin/sh
+# Git guard, installed through core.hooksPath (see README, "Git guard hooks").
+# Removes Claude attribution from the commit message, then runs the repository's
+# own commit-msg hook if it has one. Lines removed:
+#   Co-Authored-By: ... Claude ...   or   ... noreply@anthropic.com
+#   Claude-Session: ...
+#   the "Generated with [Claude Code](...)" footer
+set -eu
+
+msg_file="$1"
+perl -0pi -e '
+  s/^[ \t]*co-authored-by:[^\n]*(?:claude|noreply\@anthropic\.com)[^\n]*(?:\n|\z)//gmi;
+  s/^[ \t]*claude-session:[^\n]*(?:\n|\z)//gmi;
+  s/^[^\n]*Generated with \[Claude Code\][^\n]*(?:\n|\z)//gm;
+  s/\n{3,}/\n\n/g;
+  s/\s+\z/\n/;
+' "$msg_file"
+
+own="$(git rev-parse --git-common-dir)/hooks/commit-msg"
+if [ -x "$own" ]; then
+  exec "$own" "$@"
+fi

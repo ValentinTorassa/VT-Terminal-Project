@@ -149,6 +149,27 @@ Exit codes: 0 ok, 1 failed, 2 usage, 3 nothing to run, 4 refused.
 Tests: `bash tests/vt-test.sh` (fixture repos in a temp dir; also runs on
 macOS `/bin/bash` 3.2 in CI).
 
+## Git guard hooks
+
+`git/hooks/` keeps Claude attribution out of every repository under a folder you choose:
+
+- `commit-msg` removes `Co-Authored-By:` lines naming Claude or `noreply@anthropic.com`,
+  `Claude-Session:` lines and the "Generated with [Claude Code]" footer from the message.
+- `pre-push` refuses a push that would publish a commit still carrying them, since a commit
+  can also arrive through a rebase, a cherry-pick or another machine.
+  `git push --no-verify` skips it on purpose.
+- Every other hook name links to `passthrough`, which runs the repository's own
+  `.git/hooks/<name>`. Without it, `core.hooksPath` would hide those hooks.
+
+Install it for one folder (needs `perl`, present on macOS and Debian/Ubuntu):
+
+```bash
+mkdir -p ~/.config/git
+ln -sfn "$PWD/git/hooks" ~/.config/git/hooks-guard
+git config --file ~/.gitconfig-guard core.hooksPath ~/.config/git/hooks-guard
+git config --global 'includeIf.gitdir/i:~/code/.path' ~/.gitconfig-guard   # your folder, with the trailing /
+```
+
 ## License
 
 GPL-3.0 - see [LICENSE](./LICENSE).

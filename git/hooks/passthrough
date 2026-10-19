@@ -1,0 +1,8 @@
+#!/bin/sh
+# Git guard, installed through core.hooksPath (see README, "Git guard hooks").
+# core.hooksPath hides .git/hooks, so every other hook name is a link to this file,
+# which runs the repository's own hook of the same name if it has one.
+own="$(git rev-parse --git-common-dir)/hooks/$(basename "$0")"
+if [ -x "$own" ]; then
+  exec "$own" "$@"
+fi

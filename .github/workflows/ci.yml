@@ -17,6 +17,7 @@ jobs:
           install.sh install-linux.sh install-macos.sh
           scripts/symlink.sh scripts/uninstall.sh
           scripts/claude-resume scripts/vt-term scripts/vt
+          git/hooks/commit-msg git/hooks/pre-push git/hooks/passthrough
           tests/vt-test.sh
       # ide/ came from VT-IDE-Project, which gated on warnings and above.
       - name: shellcheck ide/ (warning and above)
