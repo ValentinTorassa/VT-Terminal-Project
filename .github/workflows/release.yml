@@ -1,0 +1,25 @@
+name: Release
+# Pushing a tag vX.Y.Z publishes the GitHub release, with the CHANGELOG.md section of that version as
+# its notes. It refuses to publish when bootstrap.sh does not default to that tag (the one-line install
+# would clone another version) or when CHANGELOG.md has no section for it.
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: The tag matches bootstrap.sh and has a CHANGELOG section
+        run: |
+          tag="$GITHUB_REF_NAME"
+          grep -qF "VT_TERMINAL_REF:-$tag}" bootstrap.sh || { echo "bootstrap.sh does not default to $tag"; exit 1; }
+          awk -v v="${tag#v}" 'index($0, "## [" v "]") == 1 {on=1; next} /^## \[/ {on=0} /^\[[0-9.]+\]: / {on=0} on' CHANGELOG.md > notes.md
+          [ -s notes.md ] || { echo "CHANGELOG.md has no section for $tag"; exit 1; }
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md --verify-tag

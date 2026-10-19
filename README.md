@@ -26,11 +26,24 @@ The Zed setup that used to be [VT-IDE-Project](https://github.com/ValentinTorass
 
 ## Quick start
 
+One line, pinned to the latest release (read [`bootstrap.sh`](./bootstrap.sh) first: it is short):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ValentinTorassa/VT-Terminal-Project/v1.0.0/bootstrap.sh | bash
+```
+
+It clones the repository into `~/.dotfiles` (or updates the clone that's already there) and runs
+`install.sh`. `VT_TERMINAL_DIR` changes the folder, `VT_TERMINAL_REF` the version, and
+`VT_TERMINAL_NO_INSTALL=1` stops after the clone. By hand:
+
 ```bash
 git clone https://github.com/ValentinTorassa/vt-terminal-project.git ~/.dotfiles
 cd ~/.dotfiles
 ./install.sh
 ```
+
+What changed in each version: [CHANGELOG.md](./CHANGELOG.md) and
+[Releases](https://github.com/ValentinTorassa/VT-Terminal-Project/releases).
 
 `install.sh` also runs `ide/install.sh`, which links `~/.config/zed/settings.json` and `keymap.json` to `ide/zed/` and the `vt-*` IDE scripts into `~/.local/bin`. Run `ide/install.sh` alone to redo just the Zed part. Details: [`ide/README.md`](./ide/README.md).
 

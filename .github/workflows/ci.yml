@@ -15,7 +15,7 @@ jobs:
       - run: shellcheck --version
       - run: >-
           shellcheck
-          install.sh install-linux.sh install-macos.sh
+          install.sh install-linux.sh install-macos.sh bootstrap.sh
           scripts/symlink.sh scripts/uninstall.sh
           scripts/claude-resume scripts/vt-term scripts/vt
           git/hooks/commit-msg git/hooks/pre-push git/hooks/passthrough
@@ -46,3 +46,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: /bin/bash --version
       - run: /bin/bash tests/vt-test.sh
+  # The one-line install, without installing: it clones this repository and checks out the pushed
+  # commit. Only on push: a pull request's commit is not in the public clone yet.
+  bootstrap:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: bootstrap.sh clones and checks out the requested commit
+        run: |
+          VT_TERMINAL_DIR="$RUNNER_TEMP/dots" VT_TERMINAL_REF="$GITHUB_SHA" VT_TERMINAL_NO_INSTALL=1 bash bootstrap.sh
+          test "$(git -C "$RUNNER_TEMP/dots" rev-parse HEAD)" = "$GITHUB_SHA"
+          # a second run updates the same clone instead of failing
+          VT_TERMINAL_DIR="$RUNNER_TEMP/dots" VT_TERMINAL_REF="$GITHUB_SHA" VT_TERMINAL_NO_INSTALL=1 bash bootstrap.sh
