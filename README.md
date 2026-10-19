@@ -171,6 +171,11 @@ macOS `/bin/bash` 3.2 in CI).
 - `pre-push` refuses a push that would publish a commit still carrying them, since a commit
   can also arrive through a rebase, a cherry-pick or another machine.
   `git push --no-verify` skips it on purpose.
+- Optional identity guard: set `guard.denyEmail` (an extended regex, case-insensitive; repeat
+  the key for more) and `pre-commit` refuses a commit whose author or committer email matches,
+  while `pre-push` refuses to publish one that slipped through. Handy when a machine's global
+  identity is a work address: `git config --file ~/.gitconfig-guard guard.denyEmail '@work\.example$'`.
+  Tests: `sh tests/git-guard-test.sh`.
 - Every other hook name links to `passthrough`, which runs the repository's own
   `.git/hooks/<name>`. Without it, `core.hooksPath` would hide those hooks.
 

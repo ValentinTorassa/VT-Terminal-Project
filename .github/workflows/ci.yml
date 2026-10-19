@@ -18,8 +18,8 @@ jobs:
           install.sh install-linux.sh install-macos.sh bootstrap.sh
           scripts/symlink.sh scripts/uninstall.sh
           scripts/claude-resume scripts/vt-term scripts/vt
-          git/hooks/commit-msg git/hooks/pre-push git/hooks/passthrough
-          tests/vt-test.sh
+          git/hooks/commit-msg git/hooks/pre-commit git/hooks/pre-push git/hooks/passthrough
+          tests/vt-test.sh tests/git-guard-test.sh
       # ide/ came from VT-IDE-Project, which gated on warnings and above.
       - name: shellcheck ide/ (warning and above)
         run: shellcheck -S warning ide/install.sh ide/scripts/vt-*
@@ -46,6 +46,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: /bin/bash --version
       - run: /bin/bash tests/vt-test.sh
+      - run: /bin/sh tests/git-guard-test.sh
   # The one-line install, without installing: it clones this repository and checks out the pushed
   # commit. Only on push: a pull request's commit is not in the public clone yet.
   bootstrap:

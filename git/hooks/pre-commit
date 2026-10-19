@@ -1,1 +1,28 @@
-passthrough
+#!/bin/sh
+# Git guard, installed through core.hooksPath (see README, "Git guard hooks").
+# Refuses a commit whose author or committer email matches guard.denyEmail
+# (extended regexes, one per value, case-insensitive), so a folder can keep a
+# wrong identity out of its history, then runs the repository's own pre-commit.
+set -eu
+
+deny=$(git config --get-all guard.denyEmail || true)
+if [ -n "$deny" ]; then
+  pat=$(printf '%s\n' "$deny" | paste -sd '|' -)
+  for role in author committer; do
+    case "$role" in
+      author) ident=$(git var GIT_AUTHOR_IDENT) ;;
+      *) ident=$(git var GIT_COMMITTER_IDENT) ;;
+    esac
+    email=$(printf '%s\n' "$ident" | sed -n 's/^.*<\(.*\)>.*$/\1/p')
+    if printf '%s\n' "$email" | awk -v pat="$pat" 'tolower($0) ~ tolower(pat) { hit = 1 } END { exit !hit }'; then
+      echo "commit refused: the $role email <$email> matches guard.denyEmail for this folder." >&2
+      echo "Set the right identity (git config user.email ...) and commit again." >&2
+      exit 1
+    fi
+  done
+fi
+
+own="$(git rev-parse --git-common-dir)/hooks/pre-commit"
+if [ -x "$own" ]; then
+  exec "$own" "$@"
+fi

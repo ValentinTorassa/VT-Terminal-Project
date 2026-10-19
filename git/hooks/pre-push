@@ -1,47 +1,67 @@
 #!/bin/sh
 # Git guard, installed through core.hooksPath (see README, "Git guard hooks").
-# Refuses a push that would publish a commit carrying Claude attribution (commits
-# can arrive without commit-msg: rebase, cherry-pick, commit-tree, another machine),
-# then runs the repository's own pre-push hook with the same input.
+# Refuses a push that would publish a commit carrying Claude attribution, or one
+# whose author or committer email matches guard.denyEmail (commits can arrive
+# without commit-msg or pre-commit: rebase, cherry-pick, commit-tree, another
+# machine), then runs the repository's own pre-push hook with the same input.
 # To push such a commit on purpose: git push --no-verify
 set -eu
 
 remote="$1"
+url="${2:-}"
 zero=$(git hash-object --stdin </dev/null | tr '0-9a-f' '0')
 updates=$(cat)
+deny=$(git config --get-all guard.denyEmail || true)
+pat=""
+if [ -n "$deny" ]; then
+  pat=$(printf '%s\n' "$deny" | paste -sd '|' -)
+fi
 bad=""
+wrong=""
 
 while read -r _lref lsha _rref rsha; do
   [ -n "${lsha:-}" ] || continue
   [ "$lsha" = "$zero" ] && continue   # deleting a ref publishes nothing
   if [ "$rsha" != "$zero" ] && git cat-file -e "$rsha^{commit}" 2>/dev/null; then
-    found=$(git log -i -E --format='%h %s' \
-      --grep='^[[:space:]]*co-authored-by:.*(claude|noreply@anthropic\.com)' \
-      --grep='^[[:space:]]*claude-session:' \
-      --grep='generated with \[claude code\]' \
-      "$rsha..$lsha")
+    set -- "$rsha..$lsha"
   else
-    found=$(git log -i -E --format='%h %s' \
-      --grep='^[[:space:]]*co-authored-by:.*(claude|noreply@anthropic\.com)' \
-      --grep='^[[:space:]]*claude-session:' \
-      --grep='generated with \[claude code\]' \
-      "$lsha" --not --remotes="$remote")
+    set -- "$lsha" --not --remotes="$remote"
   fi
+  found=$(git log -i -E --format='%h %s' \
+    --grep='^[[:space:]]*co-authored-by:.*(claude|noreply@anthropic\.com)' \
+    --grep='^[[:space:]]*claude-session:' \
+    --grep='generated with \[claude code\]' \
+    "$@")
   if [ -n "$found" ]; then
     bad="$bad
 $found"
+  fi
+  if [ -n "$pat" ]; then
+    found=$(git log --format='%h%x09%ae%x09%ce%x09%s' "$@" |
+      awk -F '\t' -v pat="$pat" 'tolower($2) ~ tolower(pat) || tolower($3) ~ tolower(pat) { print $1 " <" $2 "> " $4 }')
+    if [ -n "$found" ]; then
+      wrong="$wrong
+$found"
+    fi
   fi
 done <<EOF
 $updates
 EOF
 
+status=0
 if [ -n "$bad" ]; then
   echo "push refused: these commits carry Claude attribution (Co-Authored-By / Claude-Session):$bad" >&2
   echo "Reword them (git rebase -i, or git commit --amend for the last one) and push again." >&2
-  exit 1
+  status=1
 fi
+if [ -n "$wrong" ]; then
+  echo "push refused: these commits were made with an email that guard.denyEmail blocks here:$wrong" >&2
+  echo "Fix the identity and rewrite them (git rebase -r <base> --exec 'git commit --amend --no-edit --reset-author')." >&2
+  status=1
+fi
+[ "$status" -eq 0 ] || exit "$status"
 
 own="$(git rev-parse --git-common-dir)/hooks/pre-push"
 if [ -x "$own" ]; then
-  printf '%s\n' "$updates" | "$own" "$@"
+  printf '%s\n' "$updates" | "$own" "$remote" "$url"
 fi
