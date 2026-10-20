@@ -47,12 +47,17 @@ ai() {
   echo "$text"
 }
 
-# Capture last command output automatically
-VT_LAST_OUTPUT="/tmp/vt_last_output_${$}"
+# Capture the last command's output for aiexplain. Off by default: the capture
+# pipes stdout through tee, so commands stop seeing a terminal and lose colours
+# and pagers (git diff without delta, bat and eza without colour). Turn it on
+# with `export VT_CAPTURE_OUTPUT=1`; without it, pipe into aiexplain instead.
+VT_LAST_OUTPUT="${TMPDIR:-/tmp}/vt_last_output_${$}"
 
 _vt_preexec() {
+  [[ "${VT_CAPTURE_OUTPUT:-0}" == 1 ]] || return
   [[ "$1" =~ ^(ai|aiexplain|aicommit|claude|codex|gemini|antigravity|exec|exit|clear|cd|ls|history) ]] && return
-  : > "$VT_LAST_OUTPUT"
+  # Only this user can read what the last command printed
+  (umask 077; : > "$VT_LAST_OUTPUT")
   exec {_VT_OUT_FD}>&1
   exec 1> >(tee "$VT_LAST_OUTPUT" >&$_VT_OUT_FD 2>/dev/null)
 }
@@ -83,7 +88,11 @@ aiexplain() {
     if [[ -s "$VT_LAST_OUTPUT" ]]; then
       input=$(cat "$VT_LAST_OUTPUT")
     else
-      echo "No output captured. Run a command first or pipe output: cmd | aiexplain"
+      if [[ "${VT_CAPTURE_OUTPUT:-0}" == 1 ]]; then
+        echo "No output captured. Run a command first or pipe output: cmd | aiexplain"
+      else
+        echo "Pipe the output in (cmd | aiexplain), or export VT_CAPTURE_OUTPUT=1 to capture each command"
+      fi
       return 1
     fi
   else

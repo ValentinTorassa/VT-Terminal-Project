@@ -93,7 +93,7 @@ Set `VT_ANTHROPIC_KEY` to enable:
 | Command | Action |
 |---------|--------|
 | `ai "question"` | Get a terminal command suggestion |
-| `aiexplain [question]` | Explain last output (or pipe: `cmd \| aiexplain "why"`) |
+| `aiexplain [question]` | Explain piped output (`cmd \| aiexplain "why"`), or the last command's output with `VT_CAPTURE_OUTPUT=1` (capturing turns off colours and pagers) |
 | `aicommit` | Generate commit message from staged changes |
 | `Alt+A` | AI auto-complete current command |
 | `cr` | Search Claude history by account, date, and project directory |
