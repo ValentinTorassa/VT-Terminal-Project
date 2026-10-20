@@ -12,6 +12,10 @@
 
 Personal dotfiles and terminal setup for macOS and Linux. One script to bootstrap a new machine with a fully configured terminal environment.
 
+![VT Terminal Project demo: the vt-term banner, a zoxide jump, eza, fzf with a bat preview and lazygit](docs/demo.gif)
+
+<sub>A fresh install: `vt-term`, `z` (zoxide), `ls` (eza), <kbd>Ctrl+F</kbd> (fzf with a bat preview) and <kbd>Ctrl+G</kbd> (lazygit), with the Powerlevel10k prompt tracking git status. Catppuccin Mocha, JetBrainsMono Nerd Font.</sub>
+
 The Zed setup that used to be [VT-IDE-Project](https://github.com/ValentinTorassa/VT-IDE-Project) lives in [`ide/`](./ide), with its history.
 
 ## What's included
