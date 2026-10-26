@@ -1,10 +1,14 @@
+# Agent shells (Claude Code sets CLAUDECODE, Codex sets CODEX_THREAD_ID) skip the
+# human-only aliases below: icons, prompts and pagers break unattended commands.
+_vt_human_shell() { [[ -z $CLAUDECODE && -z $CODEX_THREAD_ID && -z $CODEX_SANDBOX ]] }
+
 # ========== Navigation ==========
 alias ..="cd .."
 alias ...="cd ../.."
 alias ....="cd ../../.."
 
 # ========== Modern replacements ==========
-if command -v eza &>/dev/null; then
+if _vt_human_shell && command -v eza &>/dev/null; then
   alias ls="eza --icons=always"
   alias ll="eza -la --git --icons=always"
   alias la="eza -a --icons=always"
@@ -12,7 +16,7 @@ if command -v eza &>/dev/null; then
   alias lta="eza --tree --level=2 --icons=always -a"
 fi
 
-if command -v bat &>/dev/null; then
+if _vt_human_shell && command -v bat &>/dev/null; then
   alias cat="bat --paging=never"
   alias catp="bat --plain"
 fi
@@ -54,9 +58,11 @@ alias zshrc="$EDITOR ~/.zshrc"
 alias reload="source ~/.zshrc && echo 'zsh config reloaded'"
 
 # ========== Safety ==========
-alias rm="rm -i"
-alias cp="cp -i"
-alias mv="mv -i"
+if _vt_human_shell; then
+  alias rm="rm -i"
+  alias cp="cp -i"
+  alias mv="mv -i"
+fi
 
 # ========== Misc ==========
 alias cls="clear"

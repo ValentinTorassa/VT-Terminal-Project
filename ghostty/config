@@ -20,15 +20,27 @@ cursor-style = bar
 cursor-style-blink = true
 
 # ========== Clipboard ==========
-clipboard-read = allow
+# Programs (including remote ones over ssh) must ask before reading the clipboard
+clipboard-read = ask
 clipboard-write = allow
 copy-on-select = clipboard
 
 # ========== Scrollback ==========
-scrollback-limit = 50000
+# In bytes, per terminal; allocated lazily (the old 50000 kept only ~500 lines)
+scrollback-limit = 10000000
 
 # ========== Shell integration ==========
 shell-integration = zsh
+# Copy Ghostty's terminfo and TERM to hosts reached over ssh
+shell-integration-features = ssh-terminfo,ssh-env
+
+# ========== Notifications ==========
+# Notify when a command of 30 s or more finishes in a terminal you are not looking at
+notify-on-command-finish = unfocused
+notify-on-command-finish-action = bell,notify
+notify-on-command-finish-after = 30s
+# Mark the split that rang
+bell-features = border
 
 # ========== Keybindings ==========
 # Splits
