@@ -29,6 +29,14 @@ copy-on-select = clipboard
 # In bytes, per terminal; allocated lazily (the old 50000 kept only ~500 lines)
 scrollback-limit = 10000000
 
+# ========== I/O backend (Linux) ==========
+# With io_uring, Ghostty's default on Linux, every idle terminal waits in
+# io_uring_enter, and kernel 6.12 counts that as iowait and PSI io: each open
+# surface added ~8-11 % iowait on valendebian with the disk idle (27/10/2026).
+# epoll reports an idle terminal as idle. macOS (1.3.1) accepts the key.
+# Takes effect after quitting Ghostty completely.
+async-backend = epoll
+
 # ========== Shell integration ==========
 shell-integration = zsh
 # Copy Ghostty's terminfo and TERM to hosts reached over ssh
