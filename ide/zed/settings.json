@@ -40,7 +40,15 @@
     "dockerfile": true,
     "dotenv": true,
     "basher": true,
-    "github-actions": true
+    "github-actions": true,
+    "zig": true,
+    "swift": true
+  },
+
+  // ── Language servers ───────────────────────────────────────
+  // ZLS from Homebrew; its version must match Zig's (0.17.0).
+  "lsp": {
+    "zls": { "binary": { "path": "/opt/homebrew/bin/zls" } }
   },
 
   // ── AI inline suggestions ──────────────────────────────────
