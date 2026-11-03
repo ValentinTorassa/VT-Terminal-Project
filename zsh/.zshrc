@@ -64,3 +64,6 @@ export PATH="$HOME/.npm-global/bin:$PATH"
 
 # Turso
 export PATH="$PATH:/Users/valen/.turso"
+
+# bun completions
+[ -s "/home/valen/.bun/_bun" ] && source "/home/valen/.bun/_bun"
