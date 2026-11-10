@@ -33,7 +33,7 @@ The Zed setup that used to be [VT-IDE-Project](https://github.com/ValentinTorass
 One line, pinned to the latest release (read [`bootstrap.sh`](./bootstrap.sh) first: it is short):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ValentinTorassa/VT-Terminal-Project/v1.0.0/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ValentinTorassa/VT-Terminal-Project/v1.1.0/bootstrap.sh | bash
 ```
 
 It clones the repository into `~/.dotfiles` (or updates the clone that's already there) and runs

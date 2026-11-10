@@ -3,6 +3,40 @@
 Releases follow [Semantic Versioning](https://semver.org). Each release is a git tag; its notes are
 the section below with the same version.
 
+## [1.1.0] - 2026-11-10
+
+### Terminal and shell
+- Ghostty keeps 10 MB of scrollback per terminal, allocated lazily: `scrollback-limit` is in bytes,
+  so the old 50000 kept only a few hundred lines.
+- Ghostty copies its terminfo and `TERM` to ssh hosts, and notifies (bell, desktop notification and a
+  border on the split) when a command of 30 s or more finishes in a terminal that is not focused.
+- On Linux, Ghostty uses the epoll backend: with io_uring every idle terminal showed up as iowait.
+- Shells run by coding agents (`CLAUDECODE`, `CODEX_THREAD_ID` or `CODEX_SANDBOX` set) stay plain: no
+  eza/bat replacements and no `rm`/`cp`/`mv -i` prompts, which stalled chained commands.
+  `_vt_human_shell` lets `~/.zshrc.local` do the same for its own wrappers.
+- Bun completions load when bun is installed.
+
+### AI in the shell
+- `aiexplain`'s output capture is opt-in (`VT_CAPTURE_OUTPUT=1`). The preexec hook piped every
+  command through `tee`, so commands lost their terminal: no delta or pager in `git diff`, no colour
+  in bat and eza, plain Markdown from `cheat`. When it is on, the file is mode 600 under `$TMPDIR`
+  instead of world-readable under `/tmp`.
+
+### Zed IDE (`ide/`)
+- Zig and Swift enabled, with ZLS from Homebrew.
+
+### Git guard hooks
+- `guard.denyEmail`: `pre-commit` refuses a commit whose author or committer email matches it, and
+  `pre-push` refuses to publish one that skipped the check (rebase, `--no-verify`, another machine).
+  Off unless the key is set; tested in CI on Linux and macOS.
+
+### Security
+- Ghostty's `clipboard-read` is back to `ask`: with `allow`, any program, including a remote one over
+  ssh through OSC 52, could read the clipboard silently.
+
+### Install
+- The one-line install and `vt --version` point at 1.1.0. The README shows a terminal demo GIF.
+
 ## [1.0.0] - 2026-10-19
 
 First tagged release: six months of the setup in daily use on macOS and Linux.
@@ -42,4 +76,5 @@ First tagged release: six months of the setup in daily use on macOS and Linux.
   macOS's Bash 3.2, CodeQL, actions pinned by SHA, Ubuntu image pinned to 24.04.
 - GPL-3.0 license.
 
+[1.1.0]: https://github.com/ValentinTorassa/VT-Terminal-Project/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/ValentinTorassa/VT-Terminal-Project/releases/tag/v1.0.0

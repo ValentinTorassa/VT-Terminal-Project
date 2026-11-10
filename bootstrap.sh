@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # One-line install for VT Terminal Project:
 #
-#   curl -fsSL https://raw.githubusercontent.com/ValentinTorassa/VT-Terminal-Project/v1.0.0/bootstrap.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/ValentinTorassa/VT-Terminal-Project/v1.1.0/bootstrap.sh | bash
 #
 # Clones the repository (or updates an existing clone) at a fixed release and runs install.sh.
 # Read it before piping it into a shell: it is short.
 #
 #   VT_TERMINAL_DIR=~/.dotfiles   where the clone lives (default: ~/.dotfiles)
-#   VT_TERMINAL_REF=v1.0.0        release tag, branch or commit to check out (default: this release)
+#   VT_TERMINAL_REF=v1.1.0        release tag, branch or commit to check out (default: this release)
 #   VT_TERMINAL_NO_INSTALL=1      clone or update only, without running install.sh
 #
 # Everything runs inside a function called on the last line, so a download cut halfway runs nothing.
@@ -16,7 +16,7 @@ set -euo pipefail
 vt_bootstrap() {
   local repo="https://github.com/ValentinTorassa/VT-Terminal-Project.git"
   local dir="${VT_TERMINAL_DIR:-$HOME/.dotfiles}"
-  local ref="${VT_TERMINAL_REF:-v1.0.0}"
+  local ref="${VT_TERMINAL_REF:-v1.1.0}"
 
   if ! command -v git >/dev/null 2>&1; then
     echo "[!] git is required" >&2
