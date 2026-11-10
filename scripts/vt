@@ -16,7 +16,7 @@
 # Written for bash 3.2 (macOS /bin/bash): no associative arrays, no mapfile.
 set -uo pipefail
 
-VT_VERSION="1.0.0"
+VT_VERSION="1.1.0"
 VT_NAMES="check test build setup doctor"
 NL='
 '
