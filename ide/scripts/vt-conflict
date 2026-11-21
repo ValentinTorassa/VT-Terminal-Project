@@ -54,11 +54,14 @@ echo ""
 TARGET="${1:-}"
 
 if [[ -z "$TARGET" ]]; then
-  echo -e "${DIM}Run: vt-conflict <file> to resolve a specific file${RESET}"
-  echo ""
-  # Pick the first conflicted file
-  TARGET=$(echo "$CONFLICTED" | head -1)
-  echo -e "${CYAN}Resolving first conflict: ${TARGET}${RESET}"
+  # Only auto-pick when there is exactly one conflicted file.
+  if [[ "$(printf '%s\n' "$CONFLICTED" | wc -l | tr -d ' ')" -eq 1 ]]; then
+    TARGET="$CONFLICTED"
+    echo -e "${CYAN}Resolving ${TARGET}${RESET}"
+  else
+    echo -e "${DIM}Run: vt-conflict <file> to resolve a specific file${RESET}"
+    exit 1
+  fi
 fi
 
 if [[ ! -f "$TARGET" ]]; then
@@ -81,11 +84,13 @@ echo ""
 PROMPT="Resolve the merge conflicts in this file. The file contains git conflict markers (<<<<<<< , =======, >>>>>>>).
 
 Rules:
-- Output ONLY the resolved file content, no explanations before or after the code
+- Output ONLY the resolved file content
+- Do not wrap the content in markdown code fences
+- Do not add explanations or comments about the resolution
 - Remove ALL conflict markers
 - Integrate changes from BOTH sides when possible
 - Keep code style consistent
-- After the resolved code, add a brief --- separator and explain what you kept from each side
+- If the two sides cannot be combined, pick the safer option and leave a short code comment explaining why
 
 File: ${TARGET}
 
@@ -95,17 +100,42 @@ ${FILE_CONTENT}"
 echo -e "${CYAN}AI resolving conflicts...${RESET}"
 echo ""
 
-RESOLVED=$(echo "$PROMPT" | claude --print 2>/dev/null || echo "$PROMPT" | claude -p 2>/dev/null)
+if ! RESOLVED=$(claude --print <<<"$PROMPT"); then
+  echo -e "${RED}Claude failed to resolve ${TARGET}${RESET}"
+  exit 1
+fi
 
-echo "$RESOLVED"
+# Drop a markdown fence the model may have wrapped around the whole file.
+RESOLVED=$(printf '%s\n' "$RESOLVED" | sed -e '1{/^```/d;}' -e '${/^```[[:space:]]*$/d;}')
+
+if [[ -z "${RESOLVED//[[:space:]]/}" ]]; then
+  echo -e "${RED}Empty resolution - leaving ${TARGET} untouched${RESET}"
+  exit 1
+fi
+
+if printf '%s\n' "$RESOLVED" | grep -E '^(<{7}|={7}|>{7})([[:space:]]|$)' >/dev/null; then
+  echo -e "${RED}The AI response still contains conflict markers - leaving ${TARGET} untouched${RESET}"
+  exit 1
+fi
+
+printf '%s\n' "$RESOLVED"
 echo ""
 echo -e "${YELLOW}Apply this resolution to ${TARGET}? [y/N]${RESET}"
-read -r CONFIRM
+read -r CONFIRM || CONFIRM=""
 
 if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
-  # Extract just the code (before the --- separator)
-  echo "$RESOLVED" | sed '/^---$/,$d' > "$TARGET"
-  echo -e "${GREEN}Resolved! Run 'git add ${TARGET}' to mark as resolved${RESET}"
+  BACKUP="${TARGET}.vt-bak"
+  cp -p "$TARGET" "$BACKUP"
+
+  # Write through a temp file so a failed write never truncates the original.
+  TMP_OUT="$(mktemp "$(dirname "$TARGET")/.vt-conflict.XXXXXX")"
+  trap 'rm -f "$TMP_OUT"' EXIT
+  printf '%s\n' "$RESOLVED" > "$TMP_OUT"
+  mv "$TMP_OUT" "$TARGET"
+  trap - EXIT
+
+  echo -e "${GREEN}Resolved! Backup: ${BACKUP}${RESET}"
+  echo -e "${GREEN}Run 'git add ${TARGET}' to mark as resolved${RESET}"
 else
   echo -e "${DIM}Resolution not applied${RESET}"
 fi
