@@ -7,7 +7,6 @@
   "outline_panel": { "dock": "right" },
   "collaboration_panel": { "dock": "right" },
   "git_panel": { "dock": "right" },
-  "chat_panel": { "dock": "right" },
   "notification_panel": { "dock": "right" },
   "debugger": { "dock": "right" },
   "agent": {
@@ -53,13 +52,12 @@
 
   // ── AI inline suggestions ──────────────────────────────────
   // Powered by Zeta - Zed's built-in edit-prediction model.
-  // No sign-in, multi-line + deletion suggestions, runs out of the box.
+  // Requires signing in: Zeta ships with Zed Pro, the Pro trial, and the
+  // Student/Business plans. On the Free plan, switch the provider from the
+  // status bar (Copilot, Ollama, or an OpenAI-compatible endpoint).
   // Mode: "eager" shows predictions inline as you type, "subtle" only on alt.
-  "features": {
-    "edit_prediction_provider": "zed"
-  },
-  "show_inline_completions": true,
   "edit_predictions": {
+    "provider": "zed",
     "mode": "eager"
   },
 
@@ -100,9 +98,6 @@
   // ── Terminal inside Zed ─────────────────────────────────────
   "terminal": {
     "font_size": 14,
-    "shell": {
-      "program": "zsh"
-    },
     "working_directory": "current_project_directory",
     "blinking": "off"
   },
