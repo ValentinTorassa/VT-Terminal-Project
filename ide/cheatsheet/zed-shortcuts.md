@@ -5,9 +5,11 @@ Bindings use `ctrl` (Linux). On macOS, press `cmd` wherever you see `ctrl`.
 
 ---
 
-## AI Suggestions in Code (auto-on)
+## AI Suggestions in Code
 Driven by **Zeta**, Zed's built-in edit-prediction model.
-No sign-in needed - suggestions appear inline as you type.
+Zeta requires signing in and is included with Zed Pro, the Pro trial, and the
+Student/Business plans. On the Free plan, pick another provider from the status
+bar (GitHub Copilot, Ollama, or an OpenAI-compatible endpoint).
 
 | Shortcut | Action |
 |----------|--------|
@@ -15,8 +17,8 @@ No sign-in needed - suggestions appear inline as you type.
 | `Esc` | Dismiss the current suggestion |
 | `Alt+\\` | Manually trigger an inline completion |
 
-Tweak in `zed/settings.json` via `show_inline_completions`, `show_edit_predictions`,
-and `edit_predictions.mode`.
+Tweak in `zed/settings.json` via `edit_predictions.provider`,
+`edit_predictions.mode`, and `show_edit_predictions`.
 
 ## AI Assistant (custom - `zed/keymap.json`)
 | Shortcut | Context | Action |
