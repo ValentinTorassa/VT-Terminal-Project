@@ -19,21 +19,31 @@ show_help() {
   echo "  vt-diff --help         # Show this help"
 }
 
-DIFF_ARGS=""
+DIFF_MODE=""
+FILES=()
 LABEL="unstaged changes"
+
+# Build the git diff invocation without word-splitting the mode or the paths.
+run_diff() {
+  if [[ ${#FILES[@]} -gt 0 ]]; then
+    git diff ${DIFF_MODE:+"$DIFF_MODE"} "$@" -- "${FILES[@]}"
+  else
+    git diff ${DIFF_MODE:+"$DIFF_MODE"} "$@"
+  fi
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help|-h) show_help; exit 0 ;;
-    --staged) DIFF_ARGS="--staged"; LABEL="staged changes"; shift ;;
+    --staged) DIFF_MODE="--staged"; LABEL="staged changes"; shift ;;
     --branch)
       if [[ $# -lt 2 || "$2" == -* ]]; then
         echo -e "${YELLOW}--branch needs a branch name, e.g. --branch main${RESET}"
         show_help
         exit 1
       fi
-      DIFF_ARGS="$2...HEAD"; LABEL="changes vs $2"; shift 2 ;;
-    *) DIFF_ARGS="$DIFF_ARGS -- $1"; shift ;;
+      DIFF_MODE="$2...HEAD"; LABEL="changes vs $2"; shift 2 ;;
+    *) FILES+=("$1"); shift ;;
   esac
 done
 
@@ -51,7 +61,7 @@ if ! git rev-parse --is-inside-work-tree &>/dev/null; then
   exit 1
 fi
 
-DIFF=$(git diff $DIFF_ARGS)
+DIFF="$(run_diff)"
 
 if [[ -z "$DIFF" ]]; then
   echo -e "${DIM}No ${LABEL} found${RESET}"
@@ -60,14 +70,15 @@ fi
 
 # Show stats first
 echo -e "${CYAN}Diff stats (${LABEL}):${RESET}"
-git diff --stat $DIFF_ARGS
+run_diff --stat
 echo ""
 
 # Pretty diff with delta if available
 if command -v delta &>/dev/null; then
   # sed reads delta's output to the end: `| head -80` closed the pipe early,
   # and under pipefail the SIGPIPE that killed delta ended the script.
-  delta --side-by-side --width="$(tput cols)" <<<"$DIFF" 2>/dev/null | sed -n '1,80p'
+  WIDTH="$(tput cols 2>/dev/null || echo 80)"
+  delta --side-by-side --width="$WIDTH" <<<"$DIFF" 2>/dev/null | sed -n '1,80p'
   echo ""
   echo -e "${DIM}(showing first 80 lines of formatted diff)${RESET}"
   echo ""

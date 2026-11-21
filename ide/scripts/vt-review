@@ -18,20 +18,20 @@ show_help() {
   echo "  vt-review --help       # Show this help"
 }
 
-DIFF_ARGS=""
+DIFF_MODE=""
 LABEL="unstaged changes"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help|-h) show_help; exit 0 ;;
-    --staged) DIFF_ARGS="--staged"; LABEL="staged changes"; shift ;;
+    --staged) DIFF_MODE="--staged"; LABEL="staged changes"; shift ;;
     --branch)
       if [[ $# -lt 2 || "$2" == -* ]]; then
         echo -e "${YELLOW}--branch needs a branch name, e.g. --branch main${RESET}"
         show_help
         exit 1
       fi
-      DIFF_ARGS="$2...HEAD"; LABEL="changes vs $2"; shift 2 ;;
+      DIFF_MODE="$2...HEAD"; LABEL="changes vs $2"; shift 2 ;;
     *) echo -e "${YELLOW}Unknown option: $1${RESET}"; show_help; exit 1 ;;
   esac
 done
@@ -48,15 +48,15 @@ if ! git rev-parse --is-inside-work-tree &>/dev/null; then
   exit 1
 fi
 
-DIFF=$(git diff $DIFF_ARGS)
+DIFF="$(git diff ${DIFF_MODE:+"$DIFF_MODE"})"
 
 if [[ -z "$DIFF" ]]; then
   echo -e "${DIM}No ${LABEL} found${RESET}"
   exit 0
 fi
 
-STATS=$(git diff --stat $DIFF_ARGS)
-FILE_COUNT=$(git diff --name-only $DIFF_ARGS | wc -l | tr -d ' ')
+STATS="$(git diff ${DIFF_MODE:+"$DIFF_MODE"} --stat)"
+FILE_COUNT="$(git diff ${DIFF_MODE:+"$DIFF_MODE"} --name-only | wc -l | tr -d ' ')"
 
 echo -e "${CYAN}Reviewing ${LABEL} (${FILE_COUNT} files)${RESET}"
 echo -e "${DIM}${STATS}${RESET}"
