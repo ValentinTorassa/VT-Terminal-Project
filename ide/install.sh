@@ -13,7 +13,12 @@ BOLD='\033[1m'
 RESET='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-ZED_CONFIG_DIR="$HOME/.config/zed"
+# Zed honors XDG_CONFIG_HOME on Linux; on macOS it always uses ~/.config/zed.
+if [[ "$(uname)" == "Linux" && -n "${XDG_CONFIG_HOME:-}" ]]; then
+  ZED_CONFIG_DIR="$XDG_CONFIG_HOME/zed"
+else
+  ZED_CONFIG_DIR="$HOME/.config/zed"
+fi
 BIN_DIR="$HOME/.local/bin"
 
 bash "$SCRIPT_DIR/scripts/vt-ide"
@@ -69,20 +74,47 @@ check_dep() {
   local cmd="$1"
   local name="${2:-$1}"
   local install_hint="${3:-}"
+  local required="${4:-required}"
   if command -v "$cmd" &>/dev/null; then
     success "$name $(command -v "$cmd")"
   else
     warn "$name not found${install_hint:+ - $install_hint}"
-    MISSING+=("$name")
+    if [[ "$required" == "required" ]]; then
+      MISSING+=("$name")
+    fi
   fi
 }
 
 check_dep "zed"  "Zed CLI" "Install from https://zed.dev or run: Zed → command palette → 'install cli'"
-check_dep "gh"   "GitHub CLI" "$(brew_or_apt gh)"
 check_dep "claude" "Claude Code" "npm install -g @anthropic-ai/claude-code"
-check_dep "jq"   "jq" "$(brew_or_apt jq)"
-check_dep "delta" "delta" "$(brew_or_apt git-delta)"
 check_dep "git"  "git"
+check_dep "npx"  "Node.js (npx, for MCP servers)" "Install Node.js 18+ from https://nodejs.org"
+check_dep "uv"   "uv (Serena MCP)" "curl -LsSf https://astral.sh/uv/install.sh | sh"
+check_dep "delta" "delta (optional)" "$(brew_or_apt git-delta)" optional
+
+# JetBrains Mono is referenced by zed/settings.json; Zed silently falls back if
+# it is missing, so warn instead of failing.
+check_font() {
+  local font="JetBrains Mono"
+  local found=false
+  if command -v fc-list &>/dev/null && fc-list 2>/dev/null | grep -i "jetbrains mono" >/dev/null; then
+    found=true
+  elif [[ "$(uname)" == "Darwin" ]]; then
+    if find "$HOME/Library/Fonts" /Library/Fonts -maxdepth 2 -iname '*jetbrains*mono*' -print -quit 2>/dev/null | grep -q .; then
+      found=true
+    fi
+  elif find "$HOME/.local/share/fonts" "$HOME/.fonts" /usr/share/fonts -maxdepth 4 -iname '*jetbrains*mono*' -print -quit 2>/dev/null | grep -q .; then
+    found=true
+  fi
+
+  if [[ "$found" == true ]]; then
+    success "$font font"
+  else
+    warn "$font not found - Zed will use its default font (https://www.jetbrains.com/lp/mono/)"
+  fi
+}
+
+check_font
 
 if [[ ${#MISSING[@]} -gt 0 ]]; then
   echo ""
