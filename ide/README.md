@@ -19,7 +19,7 @@ Part of [VT-Terminal-Project](https://github.com/ValentinTorassa/VT-Terminal-Pro
 ## What it does
 
 ### AI suggestions in code (inline, as you type)
-Powered by **Zeta**, Zed's built-in edit-prediction model - enabled by default, no sign-in required.
+Powered by **Zeta**, Zed's built-in edit-prediction model - enabled by default. Zeta requires signing in and ships with **Zed Pro**, the Pro trial, and the Student/Business plans; on the Free plan, switch the provider from the status bar (GitHub Copilot, Ollama, or an OpenAI-compatible endpoint).
 
 | Feature | What you get |
 |---------|--------------|
@@ -66,7 +66,7 @@ cd ~/.dotfiles && ./install.sh   # terminal + IDE
 `ide/install.sh` symlinks `~/.config/zed/settings.json` and `keymap.json` to `ide/zed/` (a real file already there is backed up as `<name>.backup.<timestamp>`) and the `vt-*` scripts into `~/.local/bin`.
 
 ## Requirements
-macOS or Linux · Zed v0.200+ · [Claude Code CLI](https://claude.ai/claude-code) · `gh` · `jq` · `delta` · [`uv`](https://docs.astral.sh/uv/) (for Serena)
+macOS or Linux · Zed v0.200+ · [Claude Code CLI](https://claude.ai/claude-code) · `git` · Node.js 18+ (`npx`, for the MCP servers) · [`uv`](https://docs.astral.sh/uv/) (for Serena) · `delta` (optional, nicer `vt-diff` preview)
 
 ## MCP auth
 - **GitHub**: `export GITHUB_PERSONAL_ACCESS_TOKEN=...` (scopes: `repo`, `read:org`) in `~/.zshrc.local`, launch Zed from that shell
